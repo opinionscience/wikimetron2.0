@@ -1,0 +1,36 @@
+# FastAPI et serveur
+fastapi>=0.109     # >=0.109.0 recommandé pour pydantic 2.10+
+uvicorn[standard]>=0.25
+pydantic>=2.10     # Pour compatibilité avec tout l'écosystème IA moderne
+python-multipart>=0.0.9  # Pour compatibilité avec les outils récents
+
+# Base de données
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.7
+alembic==1.12.1
+
+# Cache et workers
+redis==5.0.1
+celery==5.3.4
+
+# Data science
+numpy>=1.26.0
+pandas>=2.2.0
+scipy==1.11.4
+
+# Utilitaires
+requests==2.31.0
+aiofiles==23.2.1
+python-dotenv==1.0.0
+
+# Wikipedia API
+wikipedia-api==0.6.0
+mwparserfromhell==0.6.6
+
+# Export
+openpyxl==3.1.2
+reportlab==4.0.7
+
+# Tests
+pytest==7.4.3
+pytest-asyncio==0.21.1

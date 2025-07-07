@@ -1,0 +1,610 @@
+/* wikimetron.css - Styles modernes pour Wikimetron */
+
+:root {
+  --color-background: #f8fafc;
+  --color-white: #ffffff;
+  --color-primary: #cafda6;
+  --color-primary-light: #e8fde0;
+  --color-secondary: #4573d0;
+  --color-black: #191919;
+  --color-text: #1e293b;
+  --color-text-light: #64748b;
+  --color-border: #e2e8f0;
+  --color-border-light: #f1f5f9;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+/* Base */
+/* Background global très clair */
+.body, html {
+  background-color: #f8fdf6; /* Version très claire de #cafda6 */
+  min-height: 100vh;
+}
+
+/* Alternative avec un dégradé subtil */
+.wikimetron-app {
+  background: linear-gradient(135deg, #f8fdf6 0%, #f5fcf1 100%);
+  min-height: 100vh;
+}
+
+/* Ou une version encore plus subtile */
+/* 
+body {
+  background-color: #fbfefc;
+}
+*/
+
+/* Ajustement du header pour qu'il s'intègre bien */
+.minimal-header {
+  position: static;
+  background: rgba(248, 253, 246, 0.9); /* Légèrement transparent */
+  border: none;
+  box-shadow: none;
+  transition: transform 0.3s ease;
+}
+
+/* Le reste du CSS reste identique */
+.minimal-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.minimal-title {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-text);
+  text-transform: uppercase;
+}
+
+.minimal-subtitle {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-light);
+}
+
+.minimal-back-btn {
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem;
+}
+
+/* Configuration Container */
+.config-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.config-intro {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.config-intro h1 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--color-text);
+  margin: 0 0 1rem 0;
+  background: linear-gradient(135deg, var(--color-primary) 0%, #b8f59a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.config-intro p {
+  font-size: 1.2rem;
+  color: var(--color-text-light);
+  margin: 0;
+}
+
+/* Form Sections */
+
+
+/* 
+   .form-section en flex-colonne */
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem; /* espace entre chaque enfant */
+  
+  /* Tes règles existantes : */
+  background: white;
+  border-radius: 1.5rem;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  border: 2px solid #f0f9ff;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+
+.form-section:hover {
+  border-color: #cafda6;
+  box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.form-section-header {
+  margin-bottom: 1.5rem;
+}
+
+.form-section-header h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 0.5rem 0;
+}
+
+.form-section-header p {
+  color: var(--color-text-light);
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* Pages Input */
+/* 1) On force le textarea à 100% du conteneur */
+.pages-input {
+  display: block;        /* s’assure qu’il se comporte comme un bloc */
+  width: 100%;           /* prend toute la largeur disponible */
+  box-sizing: border-box;/* inclut padding/bordures dans le width */
+  min-height: 140px;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+.form-help-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.page-counter {
+  background: var(--color-primary);
+  color: var(--color-text);
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* Language Selector */
+.language-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.language-option {
+  padding: 1rem;
+  border: 2px solid var(--color-border);
+  border-radius: 1rem;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.language-option:hover {
+  border-color: #cafda6;
+  transform: translateY(-2px);
+}
+
+.language-option.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-text);
+}
+
+/* Date Range Selector */
+.quick-dates, .custom-dates {
+  margin-bottom: 2rem;
+}
+
+.quick-dates h4, .custom-dates h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 1rem 0;
+}
+
+.quick-dates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+}
+
+.quick-date-btn {
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.quick-date-btn:hover {
+  border-color: #cafda6;
+  transform: translateY(-1px);
+}
+
+.quick-date-btn.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-text);
+}
+
+.date-inputs {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 1rem;
+  align-items: end;
+}
+
+.date-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.date-input-group label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-light);
+}
+
+.date-input {
+  padding: 0.875rem 1rem;
+  border: 2px solid var(--color-border);
+  border-radius: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.date-separator {
+  font-size: 1.5rem;
+  color: var(--color-text-light);
+  font-weight: 600;
+  text-align: center;
+  padding-bottom: 0.5rem;
+}
+
+/* Analysis Preview */
+.analysis-preview {
+  background: linear-gradient(135deg, var(--color-primary-light) 0%, #f4fef1 100%);
+  border-radius: 1.5rem;
+  padding: 2rem;
+  border: 2px solid var(--color-primary);
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.analysis-preview h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 1.5rem 0;
+}
+
+.preview-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 1.5rem;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stat-number {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: var(--color-text-light);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Submit Section */
+.submit-section {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.submit-btn {
+  min-width: 200px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  padding: 1.25rem 2.5rem;
+  border-radius: 1.25rem;
+  background: #86efac;
+  color: #191919;
+}
+
+.submit-btn:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 35px -5px rgb(202, 253, 166);
+}
+
+.submit-help {
+  color: var(--color-text-light);
+  font-size: 0.95rem;
+  margin-top: 1rem;
+  font-style: italic;
+}
+
+/* Alert améliorée */
+.alert {
+  padding: 1.25rem;
+  border-radius: 1rem;
+  margin-bottom: 1.5rem;
+  border: 2px solid;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.alert-error {
+  background-color: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .config-container {
+    padding: 1rem;
+  }
+  
+  .config-intro h1 {
+    font-size: 2rem;
+  }
+  
+  .form-section {
+    padding: 1.5rem;
+  }
+  
+  .date-inputs {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .date-separator {
+    display: none;
+  }
+  
+  .preview-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+/* Results */
+.result-card {
+  background-color: var(--color-white);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.result-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.result-card h3 {
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 1rem 0;
+  font-size: 1.125rem;
+  letter-spacing: -0.01em;
+}
+
+.score-grid {
+  display: grid;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.score-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.score-item span:first-child {
+  font-weight: 600;
+  color: var(--color-text-light);
+}
+
+.score-value {
+  font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+  font-weight: 700;
+  color: var(--color-text);
+  background: var(--color-border-light);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.8rem;
+}
+
+/* Footer */
+/* Footer - style original conservé */
+.wikimetron-footer {
+  background: var(--color-black);
+  color: var(--color-white);
+  border-top: 1px solid #374151;
+  margin-top: 4rem;
+}
+
+.footer-content {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+}
+
+/* Nouveaux logos ajoutés en haut du footer */
+.footer-logos {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.footer-logo-link {
+  display: inline-block;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  text-decoration: none;
+}
+
+.footer-logo-link:hover {
+  transform: scale(1.05);
+  opacity: 0.8;
+}
+
+.footer-logo {
+  height: 40px;
+  width: auto;
+  max-width: 120px;
+  object-fit: contain;
+  filter: brightness(0) invert(1); /* Rend les logos blancs pour s'adapter au fond noir */
+}
+.footer-logo-2 {
+  height: 100px; /* Plus grand que les 40px par défaut */
+  max-width: 150px; /* Largeur max augmentée aussi */
+}
+
+/* Texte du footer - style original conservé */
+.footer-content p {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0 0 1.5rem 0;
+  font-weight: 500;
+}
+
+/* Logo EU - style original conservé */
+.footer-eu {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.eu-logo {
+  max-width: 200px;
+  height: auto;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.eu-logo:hover {
+  opacity: 1;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .footer-logos {
+    gap: 1.5rem;
+  }
+  
+  .footer-logo {
+    height: 35px;
+    max-width: 100px;
+  }
+}
+
+@media (max-width: 480px) {
+  .footer-logos {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .footer-logo {
+    height: 30px;
+    max-width: 80px;
+  }
+}
+/* Responsive */
+@media (max-width: 768px) {
+  .header-content {
+    padding: 1rem;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .main-content {
+    padding: 2rem 1rem;
+  }
+  
+  .card-header, .card-body {
+    padding: 2rem 1.5rem;
+  }
+  
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+  
+  .grid-4 {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+  
+  .btn-large {
+    padding: 1rem 2rem;
+    font-size: 1rem;
+  }
+  
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Utilities */
+.text-center { text-align: center; }
+.mb-0 { margin-bottom: 0; }
+.mb-1 { margin-bottom: 0.25rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-6 { margin-top: 1.5rem; }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.content-card {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Focus states pour l'accessibilité */
+.form-input:focus-visible,
+.form-textarea:focus-visible,
+.form-select:focus-visible,
+.btn:focus-visible {
+  outline: 2px solid var(--color-secondary);
+  outline-offset: 2px;
+}

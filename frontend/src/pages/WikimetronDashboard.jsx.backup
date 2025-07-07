@@ -1,0 +1,66 @@
+import React, { useState } from 'react';
+import axios from 'axios';
+
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8200';
+
+const WikimetronDashboard = () => {
+  const [status, setStatus] = useState('ready');
+
+  const testConnection = async () => {
+    try {
+      setStatus('testing');
+      const response = await axios.get(`${API_BASE}/health`);
+      setStatus('connected');
+      console.log('API Response:', response.data);
+    } catch (error) {
+      setStatus('error');
+      console.error('Connection error:', error);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              Wikimetron Dashboard
+            </h1>
+            <p className="text-gray-600 mb-6">
+              Wikipedia Content Intelligence Platform
+            </p>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+              <h2 className="text-lg font-medium text-blue-900 mb-2">
+                Test de connexion API
+              </h2>
+              <button
+                onClick={testConnection}
+                disabled={status === 'testing'}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
+              >
+                {status === 'testing' ? 'Test en cours...' : 'Tester la connexion'}
+              </button>
+              
+              <div className="mt-3">
+                Status: <span className={`font-medium ${
+                  status === 'connected' ? 'text-green-600' :
+                  status === 'error' ? 'text-red-600' :
+                  status === 'testing' ? 'text-yellow-600' :
+                  'text-gray-600'
+                }`}>
+                  {status === 'connected' ? '✅ Connecté' :
+                   status === 'error' ? '❌ Erreur de connexion' :
+                   status === 'testing' ? '🔄 Test en cours' :
+                   '⏳ Prêt'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default WikimetronDashboard;

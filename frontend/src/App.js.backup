@@ -1,0 +1,417 @@
+import React, { useState } from 'react';
+import './styles/wikimetron.css';
+
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8200';
+
+// Composant Layout (Header + Footer)
+const Layout = ({ children, pageTitle, subtitle, onBackToConfig }) => {
+  return (
+    <div className="wikimetron-app">
+      {/* Header */}
+      <header className="wikimetron-header">
+  <div className="header-content">
+    {/* 1. Gauche : logo principal */}
+    <div className="header-left">
+      <a href="https://disinfo-prompt.eu/" title="Accueil Prompt">
+      <img src="/prompt.png" alt="Wikimetron" className="logo-img" />
+      </a>
+    </div>
+
+    {/* 2. Centre : titre + sous-titre */}
+    <div className="brand-text">
+      <h1>{pageTitle}</h1>
+      <p>{subtitle}</p>
+    </div>
+
+    {/* 3. Droite : bouton + logo secondaire */}
+    <div className="header-right">
+      
+      <a
+              href="https://fr.wikipedia.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Aller sur Wikipédia"
+            >
+      <img src="/wiki.png" alt="Partner Logo" className="logo-secondary" />
+      </a>
+      {onBackToConfig && (
+        <button onClick={onBackToConfig} className="btn btn-secondary">
+          ← Nouvelle Analyse
+        </button>
+      )}
+    </div>
+  </div>
+</header>
+
+
+
+      {/* Contenu principal */}
+      <main className="main-content">
+        {children}
+      </main>
+
+      {/* Footer */}
+<footer className="wikimetron-footer">
+  <div className="footer-content">
+    <p>
+      This project has received funding from the European Commission under grant agreement CNECT/LC-02629302.
+    </p>
+    <div className="footer-eu">
+      <img 
+        src="/cofunded_by_eu.png" 
+        alt="Co-funded by the European Union" 
+        className="eu-logo"
+      />
+    </div>
+  </div>
+</footer>
+    </div>
+  );
+};
+
+// Page de Configuration
+const ConfigurationPage = ({ onAnalysisStart, onNavigateToResults }) => {
+  const [pages, setPages] = useState('');
+  const [language, setLanguage] = useState('fr');
+  const [startDate, setStartDate] = useState('2024-01-01');
+  const [endDate, setEndDate] = useState('2024-12-31');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async () => {
+    if (!pages.trim()) {
+      setError('Veuillez entrer au moins une page Wikipedia');
+      return;
+    }
+
+    const pageList = pages.split('\n').map(p => p.trim()).filter(p => p.length > 0);
+    
+    if (pageList.length === 0) {
+      setError('Veuillez entrer au moins une page valide');
+      return;
+    }
+
+    if (pageList.length > 50) {
+      setError('Maximum 50 pages par analyse');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${API_BASE}/api/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pages: pageList,
+          start_date: startDate,
+          end_date: endDate,
+          language: language
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      onAnalysisStart({
+        taskId: data.task_id,
+        pages: pageList,
+        language,
+        startDate,
+        endDate,
+        estimatedTime: data.estimated_time
+      });
+
+      onNavigateToResults();
+    } catch (err) {
+      setError(`Erreur lors du lancement de l'analyse: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Layout 
+      pageTitle="Wikimetron" 
+      subtitle="Wikipedia Content Intelligence Platform"
+    >
+      <div className="content-card">
+        {/* Header de la carte */}
+        <div className="card-header">
+          <h2>🔍 Nouvelle Analyse</h2>
+          <p>Configurez votre analyse de pages Wikipedia pour obtenir des scores de sensibilité détaillés</p>
+        </div>
+
+        {/* Corps du formulaire */}
+        <div className="card-body">
+          {/* Pages Wikipedia */}
+          <div className="form-group">
+            <label className="form-label">
+              Pages Wikipedia à analyser
+            </label>
+            <textarea
+              value={pages}
+              onChange={(e) => setPages(e.target.value)}
+              placeholder="Entrez les noms des pages Wikipedia (une par ligne)&#10;Exemple:&#10;France&#10;Paris&#10;Lyon"
+              className="form-textarea"
+            />
+            <p className="form-help">
+              Maximum 50 pages par analyse
+            </p>
+          </div>
+
+          {/* Configuration */}
+          <div className="grid-3">
+            {/* Langue */}
+            <div className="form-group">
+              <label className="form-label">Langue</label>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className="form-select"
+              >
+                <option value="fr">🇫🇷 Français</option>
+                <option value="en">🇺🇸 English</option>
+                <option value="de">🇩🇪 Deutsch</option>
+                <option value="es">🇪🇸 Español</option>
+                <option value="it">🇮🇹 Italiano</option>
+              </select>
+            </div>
+
+            {/* Date de début */}
+            <div className="form-group">
+              <label className="form-label">Date de début</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="form-input"
+              />
+            </div>
+
+            {/* Date de fin */}
+            <div className="form-group">
+              <label className="form-label">Date de fin</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="form-input"
+              />
+            </div>
+          </div>
+
+          {/* Résumé de configuration */}
+          <div className="summary-box">
+            <h3>📊 Résumé de l'analyse</h3>
+            <div className="summary-grid">
+              <div className="summary-item">
+                <span>Pages:</span>
+                <span>{pages ? pages.split('\n').filter(p => p.trim()).length : 0} page(s)</span>
+              </div>
+              <div className="summary-item">
+                <span>Période:</span>
+                <span>{startDate} → {endDate}</span>
+              </div>
+              <div className="summary-item">
+                <span>Langue:</span>
+                <span>{language.toUpperCase()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Erreur */}
+          {error && (
+            <div className="alert alert-error">
+              ❌ {error}
+            </div>
+          )}
+
+          {/* Bouton de soumission */}
+          <div className="text-center">
+            <button
+              onClick={handleSubmit}
+              disabled={loading || !pages.trim()}
+              className="btn btn-primary btn-large"
+            >
+              {loading ? (
+                <>
+                  <svg className="spinner" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Lancement en cours...
+                </>
+              ) : (
+                'Lancer l\'Analyse'
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Layout>
+  );
+};
+
+// Page de Résultats
+const ResultsPage = ({ analysisData, onBackToConfig }) => {
+  const [results, setResults] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  React.useEffect(() => {
+    if (analysisData?.taskId) {
+      const pollResults = async () => {
+        try {
+          const response = await fetch(`${API_BASE}/api/tasks/${analysisData.taskId}`);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
+          const taskData = await response.json();
+
+          if (taskData.status === 'completed' && taskData.results) {
+            setResults(taskData.results);
+            setLoading(false);
+          } else if (taskData.status === 'error') {
+            setError('Erreur lors de l\'analyse');
+            setLoading(false);
+          } else {
+            setTimeout(pollResults, 2000);
+          }
+        } catch (err) {
+          console.error('Erreur polling:', err);
+          setTimeout(pollResults, 3000);
+        }
+      };
+
+      pollResults();
+    }
+  }, [analysisData?.taskId]);
+
+  const renderLoading = () => (
+    <div className="content-card">
+      <div className="loading-container">
+        <div className="loading-spinner">
+          <svg className="spinner" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+        <h2>Analyse en cours...</h2>
+        <p>Collecte des métriques pour {analysisData?.pages?.length} page(s)</p>
+        <div className="summary-box mt-6">
+          <p className="mb-0">Tâche ID: {analysisData?.taskId}</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderError = () => (
+    <div className="content-card">
+      <div className="loading-container">
+        <h2 style={{color: '#dc2626'}}>❌ Erreur</h2>
+        <p style={{color: '#dc2626'}}>{error}</p>
+        <button onClick={onBackToConfig} className="btn btn-primary mt-6">
+          Retour à la configuration
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderResults = () => (
+    <div className="content-card">
+      <div className="card-header">
+        <h2>✅ Analyse Terminée</h2>
+        <p>Résultats pour {results.pages?.length} page(s)</p>
+      </div>
+      
+      <div className="card-body">
+        <p className="mb-6">Interface de résultats détaillée à développer...</p>
+        
+        {/* Aperçu basique des résultats */}
+        <div className="grid-4">
+          {results.pages?.map((page, index) => (
+            <div key={index} className="result-card">
+              <h3>{page.title}</h3>
+              <div className="score-grid">
+                <div className="score-item">
+                  <span>Heat:</span>
+                  <span className="score-value">{page.scores?.heat?.toFixed(3) || '0.000'}</span>
+                </div>
+                <div className="score-item">
+                  <span>Quality:</span>
+                  <span className="score-value">{page.scores?.quality?.toFixed(3) || '0.000'}</span>
+                </div>
+                <div className="score-item">
+                  <span>Risk:</span>
+                  <span className="score-value">{page.scores?.risk?.toFixed(3) || '0.000'}</span>
+                </div>
+                <div className="score-item" style={{fontWeight: 'bold', borderTop: '1px solid var(--color-border)', paddingTop: '0.25rem'}}>
+                  <span>Sensitivity:</span>
+                  <span className="score-value">{page.scores?.sensitivity?.toFixed(3) || '0.000'}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <Layout 
+      pageTitle="Wikimetron" 
+      subtitle="Wikipedia Content Intelligence Platform"
+      onBackToConfig={onBackToConfig}
+    >
+      {loading && renderLoading()}
+      {error && renderError()}
+      {results && renderResults()}
+    </Layout>
+  );
+};
+
+// Application principale
+const WikimetronApp = () => {
+  const [currentPage, setCurrentPage] = useState('config');
+  const [analysisData, setAnalysisData] = useState(null);
+
+  const handleAnalysisStart = (data) => {
+    setAnalysisData(data);
+  };
+
+  const handleNavigateToResults = () => {
+    setCurrentPage('results');
+  };
+
+  const handleBackToConfig = () => {
+    setCurrentPage('config');
+    setAnalysisData(null);
+  };
+
+  return (
+    <>
+      {currentPage === 'config' && (
+        <ConfigurationPage
+          onAnalysisStart={handleAnalysisStart}
+          onNavigateToResults={handleNavigateToResults}
+        />
+      )}
+      
+      {currentPage === 'results' && (
+        <ResultsPage
+          analysisData={analysisData}
+          onBackToConfig={handleBackToConfig}
+        />
+      )}
+    </>
+  );
+};
+
+export default WikimetronApp;
