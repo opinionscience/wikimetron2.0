@@ -232,7 +232,131 @@ async def get_pageviews_timeseries(request: PageviewsRequest):
         logger.error(f"Erreur pageviews: {e}")
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des pageviews: {str(e)}")
+# Ajoutez ceci à votre fichier FastAPI existant
 
+from typing import List, Optional, Dict
+from pydantic import BaseModel
+import pandas as pd
+from datetime import datetime, timedelta
+import logging
+import traceback
+
+# ✨ NOUVEAU : Modèle Pydantic pour les requêtes d'éditions
+class EditTimeseriesRequest(BaseModel):
+    pages: List[str]
+    start_date: str
+    end_date: str
+    language: str = "fr"
+    editor_type: str = "user"  # "user" ou "all"
+
+# ✨ NOUVEAU : Endpoint pour récupérer les données d'éditions temporelles
+@app.post("/api/edit-timeseries")
+async def get_edit_timeseries(request: EditTimeseriesRequest):
+    """Récupère les données d'éditions quotidiennes pour le graphique"""
+    
+    try:
+        logger.info(f"Récupération données éditions pour {len(request.pages)} pages")
+        
+        # Validation
+        if not request.pages:
+            raise HTTPException(status_code=400, detail="Au moins une page est requise")
+        
+        if len(request.pages) > 20:
+            raise HTTPException(status_code=400, detail="Maximum 20 pages pour les graphiques")
+        
+        # Import du module edit
+        from wikimetron.metrics.edit import EditProcessor
+        
+        # Conversion des dates
+        start_date = datetime.strptime(request.start_date, '%Y-%m-%d')
+        end_date = datetime.strptime(request.end_date, '%Y-%m-%d')
+        
+        # Créer le processeur d'éditions
+        processor = EditProcessor(request.language, request.editor_type)
+        
+        # Récupérer les données pour chaque page
+        edit_data = {}
+        pages_metadata = {}
+        
+        for page in request.pages:
+            try:
+                logger.info(f"Traitement des éditions pour {page}")
+                
+                # Récupérer les comptages quotidiens
+                daily_counts = processor.fetch_daily_edits_optimized(page, start_date, end_date)
+                edit_data[page] = daily_counts
+                
+                # Calculer les métadonnées
+                total_edits = sum(daily_counts)
+                max_edits = max(daily_counts) if daily_counts else 0
+                avg_edits = total_edits / len(daily_counts) if daily_counts else 0
+                
+                pages_metadata[page] = {
+                    "total_edits": total_edits,
+                    "avg_edits": round(avg_edits, 2),
+                    "max_edits": max_edits,
+                    "data_points": len(daily_counts)
+                }
+                
+            except Exception as e:
+                logger.error(f"Erreur pour {page}: {e}")
+                # Créer des données vides en cas d'erreur
+                num_days = (end_date - start_date).days + 1
+                edit_data[page] = [0] * num_days
+                pages_metadata[page] = {
+                    "total_edits": 0,
+                    "avg_edits": 0,
+                    "max_edits": 0,
+                    "data_points": num_days,
+                    "error": str(e)
+                }
+        
+        # Construire les données pour le graphique
+        chart_data = []
+        
+        # Générer toutes les dates de la période
+        current_date = start_date
+        date_index = 0
+        
+        while current_date <= end_date:
+            data_point = {
+                "date": current_date.strftime('%Y-%m-%d')
+            }
+            
+            # Ajouter les données de chaque page pour cette date
+            for page in request.pages:
+                daily_counts = edit_data.get(page, [])
+                if date_index < len(daily_counts):
+                    data_point[page] = daily_counts[date_index]
+                else:
+                    data_point[page] = 0
+            
+            chart_data.append(data_point)
+            current_date += timedelta(days=1)
+            date_index += 1
+        
+        # Préparer la réponse
+        result = {
+            "success": True,
+            "data": chart_data,
+            "metadata": {
+                "pages": request.pages,
+                "start_date": request.start_date,
+                "end_date": request.end_date,
+                "language": request.language,
+                "editor_type": request.editor_type,
+                "total_points": len(chart_data),
+                "pages_stats": pages_metadata
+            }
+        }
+        
+        logger.info(f"Données éditions récupérées: {len(chart_data)} points de données")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Erreur éditions: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des données d'éditions: {str(e)}")
 @app.get("/api/tasks/{task_id}")
 async def get_task_status(task_id: str):
     """Récupère le statut d'une tâche"""

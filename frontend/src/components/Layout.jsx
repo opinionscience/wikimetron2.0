@@ -4,9 +4,11 @@ import '../styles/wikimetron.css';
 const Layout = ({ children, pageTitle, subtitle, onBackToConfig }) => (
   <div className="wikimetron-app">
     <header className="wikimetron-header minimal-header">
+
       <div className="minimal-container">
-        <h1 className="minimal-title">{pageTitle}</h1>
-        {subtitle && <p className="minimal-subtitle">{subtitle}</p>}
+        
+        <h1 className="minimal-title">Wikipedia Sensitivity Meter</h1>
+        
         
       </div>
     </header>

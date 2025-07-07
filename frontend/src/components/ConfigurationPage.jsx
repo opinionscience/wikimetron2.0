@@ -9,10 +9,11 @@ const LANGUAGE_OPTIONS = [
 ];
 
 const QUICK_DATE_RANGES = [
+  { label: 'Last 30 days', months: 1 }, // Approximativement 7 jours
   { label: 'Last 3 months', months: 3 },
   { label: 'Last 6 months', months: 6 },
   { label: 'This year', months: 'year' },
-  { label: 'Last year', months: 'lastYear' },
+  
 ];
 
 // Fonction pour calculer les dates

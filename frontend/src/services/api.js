@@ -41,6 +41,22 @@ export const apiService = {
     return response.json();
   },
 
+  // ✨ NOUVEAU : Récupérer les données d'éditions temporelles
+  async getEditTimeseriesData(editRequest) {
+    const response = await fetch(`${API_BASE}/api/edit-timeseries`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editRequest)
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorBody}`);
+    }
+
+    return response.json();
+  },
+
   // ✨ HELPER : Fonction utilitaire pour formater les dates
   formatDateForAPI(date) {
     if (date instanceof Date) {
@@ -101,7 +117,6 @@ export const apiService = {
   // ✨ MÉTHODE PRINCIPALE : Récupérer pageviews avec validation
   async fetchPageviewsForChart(pages, startDate, endDate, language = 'fr') {
     try {
-      // Préparer la requête
       const request = {
         pages: Array.isArray(pages) ? pages : [pages],
         start_date: this.formatDateForAPI(startDate),
@@ -109,23 +124,54 @@ export const apiService = {
         language
       };
       
-      // Validation
       const validationErrors = this.validatePageviewsRequest(request);
       if (validationErrors.length > 0) {
         throw new Error(`Erreurs de validation: ${validationErrors.join(', ')}`);
       }
-      
-      // Appel API
+
       const result = await this.getPageviewsData(request);
       
       if (!result.success) {
         throw new Error('Échec de récupération des données pageviews');
       }
-      
+
       return result;
-      
+
     } catch (error) {
       console.error('Erreur lors de la récupération des pageviews:', error);
+      throw error;
+    }
+  },
+
+  // ✨ MÉTHODE PRINCIPALE : Récupérer éditions avec validation
+  async fetchEditTimeseriesForChart(pages, startDate, endDate, language = 'fr', editorType = 'user') {
+    try {
+      const request = {
+        pages: Array.isArray(pages) ? pages : [pages],
+        start_date: this.formatDateForAPI(startDate),
+        end_date: this.formatDateForAPI(endDate),
+        language,
+        editor_type: editorType
+      };
+      
+      const validationErrors = this.validatePageviewsRequest ?
+        this.validatePageviewsRequest(request) :
+        this.validateTimeseriesRequest(request);
+        
+      if (validationErrors.length > 0) {
+        throw new Error(`Erreurs de validation: ${validationErrors.join(', ')}`);
+      }
+
+      const result = await this.getEditTimeseriesData(request);
+      
+      if (!result.success) {
+        throw new Error('Échec de récupération des données d\'éditions');
+      }
+
+      return result;
+
+    } catch (error) {
+      console.error('Erreur lors de la récupération des éditions:', error);
       throw error;
     }
   }

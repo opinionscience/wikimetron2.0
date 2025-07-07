@@ -18,6 +18,22 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_compl
 # Configuration du logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+from urllib.parse import urlparse, unquote
+
+def extract_clean_title(input_str: str) -> str:
+    """
+    Transforme une URL Wikipedia en titre propre, sinon retourne la chaîne telle quelle.
+    Exemple : "https://fr.wikipedia.org/wiki/Emmanuel_Macron" → "Emmanuel Macron"
+    """
+    try:
+        if input_str.startswith("http"):
+            path = urlparse(input_str).path
+            if "/wiki/" in path:
+                raw_title = path.split("/wiki/")[1]
+                return unquote(raw_title.replace("_", " "))
+    except Exception as e:
+        logger.warning(f"Erreur d'extraction de titre depuis URL: {input_str} ({e})")
+    return input_str  # fallback si ce n’est pas une URL
 
 # ───────────────────────────  Poids - IDENTIQUES À L'ORIGINAL ────────────────────────────
 HEAT_W = {
@@ -210,6 +226,8 @@ def compute_scores(
     Fonction principale : collecte parallèle + calcul des scores.
     LOGIQUE IDENTIQUE À L'ORIGINAL - même signature, mêmes calculs
     """
+    pages = [extract_clean_title(p) for p in pages]
+    
     logger.info(f"Début du pipeline de scoring pour {len(pages)} pages")
     pipeline_start = time.time()
     
@@ -338,21 +356,38 @@ def compute_scores_for_api(
     max_workers: int = MAX_WORKERS
 ) -> Dict[str, Any]:
     """
-    Wrapper pour l'API qui utilise le pipeline original sans modification.
+    Wrapper pour l'API qui utilise le pipeline original sans modification de logique.
+    Accepte aussi bien des titres de pages que des URLs Wikipedia.
     """
     try:
+        from urllib.parse import urlparse, unquote
+
+        def extract_clean_title(input_str: str) -> str:
+            try:
+                if input_str.startswith("http"):
+                    path = urlparse(input_str).path
+                    if "/wiki/" in path:
+                        raw_title = path.split("/wiki/")[1]
+                        return unquote(raw_title.replace("_", " "))
+            except Exception as e:
+                logger.warning(f"Erreur d'extraction de titre depuis URL: {input_str} ({e})")
+            return input_str
+
+        # 🔁 Nettoyage des pages fournies
+        pages = [extract_clean_title(p) for p in pages]
+
         pipeline_start = time.time()
-        
+
         # Appel DIRECT du pipeline original
         scoring_result, metrics = compute_scores(pages, start_date, end_date, language, max_workers)
-        
+
         processing_time = time.time() - pipeline_start
-        
+
         # Conversion pour l'API uniquement
         return convert_scoring_result_to_dict(
             scoring_result, metrics, pages, start_date, end_date, language, processing_time
         )
-        
+
     except Exception as e:
         logger.error(f"Erreur dans le pipeline API: {e}")
         # Retourner un résultat d'erreur
