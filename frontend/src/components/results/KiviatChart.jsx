@@ -12,39 +12,40 @@ import {
 
 const renderMetricValue = (value) => {
   if (typeof value === 'number') {
-    return value.toFixed(3);
+    return value.toFixed(1);
   }
-  return value || '0.000';
+  return value || '0.0';
 };
 
 const KiviatChart = ({ pages, selectedPageIndices = [0], comparisonMode = false }) => {
   const colors = [
-    { stroke: '#8b5cf6', fill: '#8b5cf6', name: 'purple' },
+    { stroke: '#3b82f6', fill: '#3b82f6', name: 'purple' },
     { stroke: '#ef4444', fill: '#ef4444', name: 'red' },
-    { stroke: '#3b82f6', fill: '#3b82f6', name: 'blue' },
     { stroke: '#10b981', fill: '#10b981', name: 'green' },
-    { stroke: '#f59e0b', fill: '#f59e0b', name: 'yellow' },
-    { stroke: '#ec4899', fill: '#ec4899', name: 'pink' }
+    { stroke: '#f59e0b', fill: '#f59e0b', name: 'green' },
+    { stroke: '#8b5cf6', fill: '#8b5cf6', name: 'yellow' },
+    { stroke: '#06b6d4', fill: '#06b6d4', name: 'pink' }
   ];
 
-  const metrics = ['Heat', 'Quality', 'Risk'];
-  
+  const metrics = ['Heat', 'Quality', 'Risk']; // Utilisé pour accéder aux données
+  const metricDisplayNames = ['Heat risk', 'Quality risk', 'Behaviour risk']; // Noms à afficher
+
   // Préparer les données pour le radar chart
-  const data = metrics.map(metric => {
-    const dataPoint = { metric };
-    
-    selectedPageIndices.forEach((pageIndex, index) => {
+  const data = metrics.map((metric, index) => {
+    const dataPoint = { metric: metricDisplayNames[index] };
+
+    selectedPageIndices.forEach((pageIndex) => {
       const page = pages[pageIndex];
       const scores = page?.scores || {};
       const metricKey = metric.toLowerCase();
       dataPoint[`page${pageIndex}`] = scores[metricKey] || 0;
       dataPoint[`page${pageIndex}Name`] = page?.title || `Page ${pageIndex + 1}`;
     });
-    
+
     return dataPoint;
   });
 
-  // Calculer les statistiques pour chaque métrique
+  // Calculer les statistiques pour chaque métrique (si nécessaire)
   const getMetricStats = (metricKey) => {
     const values = selectedPageIndices.map(idx => pages[idx]?.scores?.[metricKey] || 0);
     return {
@@ -57,35 +58,29 @@ const KiviatChart = ({ pages, selectedPageIndices = [0], comparisonMode = false 
 
   return (
     <div className="kiviat-chart-container">
-      {/* Header */}
-      <div className="kiviat-header">
-        <h4>
-          🎯 {comparisonMode ? 'Comparaison des profils de sensibilité' : 'Profil de sensibilité'}
-        </h4>
-        {comparisonMode && selectedPageIndices.length > 1 && (
-          <p className="kiviat-subtitle">
-            Comparaison de {selectedPageIndices.length} pages
-          </p>
-        )}
-      </div>
-
       {/* Graphique radar */}
       <div className="kiviat-chart-wrapper">
-        <ResponsiveContainer width="100%" height={500}>
+        <ResponsiveContainer width="100%" height={600}>
           <RadarChart data={data} margin={{ top: 20, right: 80, bottom: 20, left: 80 }}>
             <PolarGrid stroke="#e5e7eb" radialLines={true} />
-            <PolarAngleAxis 
-              dataKey="metric" 
-              tick={{ fill: '#374151', fontSize: 14, fontWeight: 'bold' }}
+            <PolarAngleAxis
+              dataKey="metric"
+              tick={{
+                fill: '#374151',
+                fontSize: 16,
+                fontWeight: 'bold'
+              }}
+              tickFormatter={(value) => value}
+              radius={120}
             />
-            <PolarRadiusAxis 
-              angle={90} 
-              domain={[0, 1]} 
-              tick={{ fill: '#6b7280', fontSize: 12 }}
+            <PolarRadiusAxis
+              angle={90}
+              domain={[0, 100]}
+              tick={false}
               tickCount={6}
               axisLine={false}
             />
-            
+
             {selectedPageIndices.map((pageIndex, index) => {
               const color = colors[index % colors.length];
               return (
@@ -97,95 +92,20 @@ const KiviatChart = ({ pages, selectedPageIndices = [0], comparisonMode = false 
                   fill={color.fill}
                   fillOpacity={comparisonMode ? 0.1 : 0.25}
                   strokeWidth={comparisonMode ? 2 : 3}
-                  dot={{ 
-                    fill: color.stroke, 
-                    strokeWidth: 2, 
+                  dot={{
+                    fill: color.stroke,
+                    strokeWidth: 2,
                     r: comparisonMode ? 3 : 5,
                     fillOpacity: 1
                   }}
                 />
               );
             })}
-            
+
             {comparisonMode && <Legend />}
           </RadarChart>
         </ResponsiveContainer>
       </div>
-
-      {/* Légende personnalisée et scores */}
-      <div className="kiviat-details">
-        {/* Légende avec scores de sensibilité */}
-        <div className="kiviat-legend">
-          <h5>📊 Scores de sensibilité</h5>
-          <div className="legend-items">
-            {selectedPageIndices.map((pageIndex, index) => {
-              const page = pages[pageIndex];
-              const scores = page?.scores || {};
-              const color = colors[index % colors.length];
-              
-              return (
-                <div key={pageIndex} className="legend-item">
-                  <div className="legend-visual">
-                    <div 
-                      className="legend-color"
-                      style={{ 
-                        backgroundColor: color.fill, 
-                        borderColor: color.stroke 
-                      }}
-                    />
-                    <span className="legend-number">#{pageIndex + 1}</span>
-                  </div>
-                  <div className="legend-content">
-                    <div className="legend-title" title={page?.title}>
-                      {page?.title || `Page ${pageIndex + 1}`}
-                    </div>
-                    <div className="legend-score" style={{ color: color.stroke }}>
-                      {renderMetricValue(scores.sensitivity)}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Statistiques de comparaison */}
-        {comparisonMode && selectedPageIndices.length > 1 && (
-          <div className="kiviat-stats">
-            <h5>📈 Statistiques de comparaison</h5>
-            <div className="stats-grid">
-              {metrics.map(metric => {
-                const metricKey = metric.toLowerCase();
-                const stats = getMetricStats(metricKey);
-                
-                return (
-                  <div key={metric} className={`stat-item ${metricKey}`}>
-                    <div className="stat-header">
-                      <span className="stat-name">{metric}</span>
-                    </div>
-                    <div className="stat-values">
-                      <div className="stat-row">
-                        <span>Écart:</span>
-                        <span>{renderMetricValue(stats.range)}</span>
-                      </div>
-                      <div className="stat-row">
-                        <span>Moyenne:</span>
-                        <span>{renderMetricValue(stats.avg)}</span>
-                      </div>
-                      <div className="stat-row">
-                        <span>Min/Max:</span>
-                        <span>{renderMetricValue(stats.min)} / {renderMetricValue(stats.max)}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-
-      
     </div>
   );
 };

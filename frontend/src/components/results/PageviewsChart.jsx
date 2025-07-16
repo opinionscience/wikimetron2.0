@@ -20,8 +20,12 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
 
   // Couleurs pour les différentes pages
   const colors = [
-    '#8b5cf6', '#ef4444', '#3b82f6', '#10b981', '#f59e0b', 
-    '#ec4899', '#6366f1', '#14b8a6', '#f97316', '#84cc16'
+      '#3b82f6', // Bleu
+  '#ef4444', // Rouge
+  '#10b981', // Vert
+  '#f59e0b', // Orange
+  '#8b5cf6', // Violet
+  '#06b6d4'  // Cyan
   ];
 
   // Récupérer les données pageviews
@@ -108,41 +112,11 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
   };
 
   return (
-    <div className="pageviews-chart-container">
-      {/* Header */}
-      <div className="pageviews-header">
-        <div className="header-content">
-          <h4>📈 Évolution des pages vues</h4>
-          <div className="header-stats">
-            {pageviewsData && (
-              <div className="total-views">
-                <span className="views-number">{formatNumber(getTotalViews())}</span>
-                <span className="views-label">vues totales</span>
-              </div>
-            )}
-            <div className="period-info">
-              {analysisConfig?.startDate} → {analysisConfig?.endDate}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Sélecteur de pages - compact */}
+    <div className="pageviews-chart-simple">
+      {/* Sélecteur de pages compact si nécessaire */}
       {pages && pages.length > 1 && (
-        <div className="pageviews-selector-compact">
-          <div className="selector-header">
-            <span className="selector-title">
-              Pages affichées ({selectedPages.length}/10):
-            </span>
-            <button 
-              className="select-all-btn"
-              onClick={() => setSelectedPages(pages.slice(0, 10))}
-              disabled={selectedPages.length === Math.min(pages.length, 10)}
-            >
-              Toutes
-            </button>
-          </div>
-          <div className="pages-selector-compact">
+        <div className="chart-pages-selector-minimal">
+          <div className="pages-selector-chips">
             {pages.map((page, index) => {
               const isSelected = selectedPages.some(p => (p.title || p) === (page.title || page));
               const color = colors[index % colors.length];
@@ -150,19 +124,17 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
               return (
                 <button
                   key={index}
-                  className={`page-selector-chip ${isSelected ? 'selected' : ''}`}
+                  className={`page-chip-minimal ${isSelected ? 'selected' : ''}`}
                   onClick={() => handlePageToggle(index)}
-                  disabled={!isSelected && selectedPages.length >= 10}
                   style={isSelected ? { 
                     borderColor: color, 
                     backgroundColor: `${color}15`,
                     color: color
                   } : {}}
                 >
-                  <span className="chip-number">#{index + 1}</span>
-                  <span className="chip-title" title={page.title || page}>
-                    {(page.title || page).length > 20 
-                      ? `${(page.title || page).substring(0, 20)}...` 
+                  <span className="chip-title">
+                    {(page.title || page).length > 15 
+                      ? `${(page.title || page).substring(0, 15)}...` 
                       : (page.title || page)
                     }
                   </span>
@@ -174,27 +146,10 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
         </div>
       )}
 
-      {/* États de chargement et erreur */}
-      {loading && (
-        <div className="pageviews-loading">
-          <div className="mini-spinner"></div>
-          <span>Récupération des données...</span>
-        </div>
-      )}
-
-      {error && (
-        <div className="pageviews-error">
-          <span>❌ {error}</span>
-          <button onClick={fetchPageviews} className="retry-btn">
-            Réessayer
-          </button>
-        </div>
-      )}
-
-      {/* Graphique */}
+      {/* Graphique seulement */}
       {pageviewsData && !loading && !error && (
-        <div className="chart-wrapper">
-          <ResponsiveContainer width="100%" height={350}>
+        <div className="chart-wrapper-simple">
+          <ResponsiveContainer width="100%" height={300}>
             <LineChart data={pageviewsData.data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis 
@@ -202,7 +157,7 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
                 tick={{ fontSize: 11, fill: '#666' }}
                 angle={-45}
                 textAnchor="end"
-                height={70}
+                height={60}
                 interval="preserveStartEnd"
               />
               <YAxis 
@@ -210,7 +165,6 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
                 tickFormatter={formatNumber}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Legend />
               
               {selectedPages.map((page, index) => {
                 const pageName = page.title || page;
@@ -232,44 +186,23 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
         </div>
       )}
 
-      {/* Statistiques résumées - compact */}
-      {pageviewsData && !loading && !error && (
-        <div className="pageviews-stats-compact">
-          <h5>📊 Statistiques de la période</h5>
-          <div className="stats-grid-compact">
-            {Object.entries(pageviewsData.metadata.pages_stats || {}).map(([pageName, stats]) => {
-              const pageIndex = selectedPages.findIndex(p => (p.title || p) === pageName);
-              const color = colors[pageIndex % colors.length];
-              
-              return (
-                <div key={pageName} className="stat-item-compact">
-                  <div className="stat-header-compact">
-                    <div 
-                      className="stat-color-dot" 
-                      style={{ backgroundColor: color }}
-                    />
-                    <span className="stat-page-name" title={pageName}>
-                      {pageName.length > 25 ? `${pageName.substring(0, 25)}...` : pageName}
-                    </span>
-                  </div>
-                  <div className="stat-values-compact">
-                    <div className="stat-main">
-                      <span className="stat-number">{formatNumber(stats.total_views)}</span>
-                      <span className="stat-label">total</span>
-                    </div>
-                    <div className="stat-secondary">
-                      <span>{formatNumber(Math.round(stats.avg_views))}/jour</span>
-                      <span>max: {formatNumber(stats.max_views)}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      {/* États de chargement */}
+      {loading && (
+        <div className="chart-loading-minimal">
+          <div className="mini-spinner"></div>
+          <span>Chargement...</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="chart-error-minimal">
+          <span>❌ {error}</span>
+          <button onClick={fetchPageviews} className="retry-btn-minimal">
+            Réessayer
+          </button>
         </div>
       )}
     </div>
   );
 };
-
 export default PageviewsChart;

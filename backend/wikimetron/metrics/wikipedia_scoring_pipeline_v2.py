@@ -41,7 +41,8 @@ RISK_W = {
     "anon_edit": 4,  # Part des éditions anonymes
     "mean_contributor_balance": 3,  # Équilibre des contributeurs
     "monopolization_score": 2,  # Monopolisation des contributions
-    "avg_activity_score": 1,  # Activité moyenne des contributeurs
+    "avg_activity_score": 1,# Activité moyenne des contributeurs
+    "sockpuppet": 10,  # Score de détection de faux nez
 }
 
 GLOB_W = {
@@ -125,6 +126,7 @@ def collect_metrics_parallel(
     from ano_edit import get_anon_edit_score_series
     from blacklist_metric import get_blacklist_share
     from revert_risk import get_revert_risk
+    from faux_nez import get_user_detection_score  # Import du faux nez
     
     # Configuration des métriques à collecter
     metric_configs = [
@@ -142,7 +144,8 @@ def collect_metrics_parallel(
         ("talk_intensity", discussion_score, (pages,start, end)),
         ("anon_edit", get_anon_edit_score_series, (pages, start, end, lang)),  #lang agnostic
         ("blacklist_share", get_blacklist_share, (pages, "blacklist.csv", lang)), #lang agnostic
-        ("revert_risk", get_revert_risk, (pages, start, end, lang)) #lang agnostic
+        ("revert_risk", get_revert_risk, (pages, start, end, lang)), #lang agnostic
+        ("sockpuppet", get_user_detection_score, (pages, "faux_nez.csv", lang))  # Faux nez
     ]
     
     logger.info(f"Démarrage collecte parallèle de {len(metric_configs)} métriques pour {len(pages)} pages")

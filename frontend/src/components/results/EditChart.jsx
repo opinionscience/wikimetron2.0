@@ -21,8 +21,12 @@ const EditChart = ({ pages, analysisConfig }) => {
 
   // Couleurs pour les différentes pages (même palette que PageviewsChart)
   const colors = [
-    '#8b5cf6', '#ef4444', '#3b82f6', '#10b981', '#f59e0b', 
-    '#ec4899', '#6366f1', '#14b8a6', '#f97316', '#84cc16'
+    '#3b82f6', // Bleu
+  '#ef4444', // Rouge
+  '#10b981', // Vert
+  '#f59e0b', // Orange
+  '#8b5cf6', // Violet
+  '#06b6d4'  // Cyan
   ];
 
   // Récupérer les données d'éditions
@@ -109,41 +113,14 @@ const EditChart = ({ pages, analysisConfig }) => {
 
   return (
     <div className="pageviews-chart-container">
-      {/* Header */}
-      <div className="pageviews-header">
-        <div className="header-content">
-          <h4>✏️ Évolution des éditions</h4>
-          <div className="header-stats">
-            {editData && (
-              <div className="total-views">
-                <span className="views-number">{formatNumber(getTotalEdits())}</span>
-                <span className="views-label">éditions totales</span>
-              </div>
-            )}
-            <div className="period-info">
-              {analysisConfig?.startDate} → {analysisConfig?.endDate}
-            </div>
-          </div>
-        </div>
-      </div>
+      
 
       
 
       {/* Sélecteur de pages - compact (même design que PageviewsChart) */}
       {pages && pages.length > 1 && (
         <div className="pageviews-selector-compact">
-          <div className="selector-header">
-            <span className="selector-title">
-              Pages affichées ({selectedPages.length}/10):
-            </span>
-            <button 
-              className="select-all-btn"
-              onClick={() => setSelectedPages(pages.slice(0, 10))}
-              disabled={selectedPages.length === Math.min(pages.length, 10)}
-            >
-              Toutes
-            </button>
-          </div>
+          
           <div className="pages-selector-compact">
             {pages.map((page, index) => {
               const isSelected = selectedPages.some(p => (p.title || p) === (page.title || page));
@@ -158,10 +135,11 @@ const EditChart = ({ pages, analysisConfig }) => {
                   style={isSelected ? { 
                     borderColor: color, 
                     backgroundColor: `${color}15`,
-                    color: color
+                    color: color,
+                  
                   } : {}}
                 >
-                  <span className="chip-number">#{index + 1}</span>
+                  
                   <span className="chip-title" title={page.title || page}>
                     {(page.title || page).length > 20 
                       ? `${(page.title || page).substring(0, 20)}...` 
@@ -212,7 +190,7 @@ const EditChart = ({ pages, analysisConfig }) => {
                 tickFormatter={formatNumber}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Legend />
+              {/* <Legend /> supprimé */}
               
               {selectedPages.map((page, index) => {
                 const pageName = page.title || page;
@@ -234,44 +212,7 @@ const EditChart = ({ pages, analysisConfig }) => {
         </div>
       )}
 
-      {/* Statistiques résumées - compact (même design que PageviewsChart) */}
-      {editData && !loading && !error && (
-        <div className="pageviews-stats-compact">
-          <h5>📊 Statistiques d'éditions de la période</h5>
-          <div className="stats-grid-compact">
-            {Object.entries(editData.metadata.pages_stats || {}).map(([pageName, stats]) => {
-              const pageIndex = selectedPages.findIndex(p => (p.title || p) === pageName);
-              const color = colors[pageIndex % colors.length];
-              
-              return (
-                <div key={pageName} className="stat-item-compact">
-                  <div className="stat-header-compact">
-                    <div 
-                      className="stat-color-dot" 
-                      style={{ backgroundColor: color }}
-                    />
-                    <span className="stat-page-name" title={pageName}>
-                      {pageName.length > 25 ? `${pageName.substring(0, 25)}...` : pageName}
-                    </span>
-                  </div>
-                  <div className="stat-values-compact">
-                    <div className="stat-main">
-                      <span className="stat-number">{formatNumber(stats.total_edits)}</span>
-                      <span className="stat-label">total</span>
-                    </div>
-                    <div className="stat-secondary">
-                      <span>{formatNumber(Math.round(stats.avg_edits))}/jour</span>
-                      <span>max: {formatNumber(stats.max_edits)}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          
-          
-        </div>
-      )}
+      
     </div>
   );
 };

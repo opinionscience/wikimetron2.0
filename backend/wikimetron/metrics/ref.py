@@ -19,7 +19,7 @@ Exemple d'utilisation :
     >>> from ref import get_citation_gap
     >>> get_citation_gap(["Emmanuel Macron", "Guerre d’Algérie"])
 
-Auteur : ChatGPT (adaptation Aurélien) – Juillet 2025
+
 """
 
 from __future__ import annotations
@@ -144,7 +144,7 @@ def get_citation_gap(pages: List[str]) -> pd.Series:
 
 if __name__ == "__main__":
     import sys
-    pages = sys.argv[1:] or ["Vladimir Poutine"]
+    pages = sys.argv[1:] or ["Kupa"]
 
     script_start_time = time.perf_counter()
     print(f"[TIMING] Démarrage du script...")

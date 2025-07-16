@@ -3,10 +3,11 @@
 Pipeline de scoring Wikipedia avec collecte parallélisée des métriques.
 Calcule Heat / Quality / Risk + score sensitivity par page.
 ADAPTATION PURE - Logique identique à l'original
+SCORES MULTIPLIÉS PAR 100
 """
 
 from __future__ import annotations
-from typing import List, Dict, Tuple, Callable, Any
+from typing import List, Dict, Tuple, Callable, Any, Optional
 from dataclasses import dataclass
 import pandas as pd
 import numpy as np
@@ -14,56 +15,44 @@ import re
 import time
 import logging
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+from urllib.parse import urlparse, unquote
+from collections import Counter
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-from urllib.parse import urlparse, unquote
-
-def extract_clean_title(input_str: str) -> str:
-    """
-    Transforme une URL Wikipedia en titre propre, sinon retourne la chaîne telle quelle.
-    Exemple : "https://fr.wikipedia.org/wiki/Emmanuel_Macron" → "Emmanuel Macron"
-    """
-    try:
-        if input_str.startswith("http"):
-            path = urlparse(input_str).path
-            if "/wiki/" in path:
-                raw_title = path.split("/wiki/")[1]
-                return unquote(raw_title.replace("_", " "))
-    except Exception as e:
-        logger.warning(f"Erreur d'extraction de titre depuis URL: {input_str} ({e})")
-    return input_str  # fallback si ce n’est pas une URL
 
 # ───────────────────────────  Poids - IDENTIQUES À L'ORIGINAL ────────────────────────────
 HEAT_W = {
-    "pageview_spike": 5,    # Spike de trafic (normalisé)
-    "edit_spike": 4,  
-    "revert_risk": 3,# Spike d'éditions (normalisé) 
-    "protection_level": 2,
-    "talk_intensity": 1,    # Intensité page de discussion
+    "Views spikes": 5,    # Spike de trafic (normalisé)
+    "Edits spikes": 4,  
+    "Edits revert probability": 3,# Spike d'éditions (normalisé) 
+    "Protection": 2,
+    "Discussion intensity": 1,    # Intensité page de discussion
       # Niveau de protection
 }
 
 QUAL_W = {
-    "citation_gap": 6,
-    "blacklist_share": 5,
-    "event_imbalance": 4,
-    "recency_score": 3,
-    'adq_score': 2,  
-    "domain_dominance": 50,  # Domination du domaine
+    "Suspicious sources": 10,
+    'Featured article': 10,
+    "Citations need": 3,
+    "Staleness": 2,
+    "Sources homogeneity": 2, 
+    "Additions/deletions balance ": 1,
+   
 }
 
 RISK_W = {
-    "anon_edit": 4,  # Part des éditions anonymes
-    "mean_contributor_balance": 3,  # Équilibre des contributeurs
-    "monopolization_score": 2,  # Monopolisation des contributions
-    "avg_activity_score": 1,  # Activité moyenne des contributeurs
+    "sockpuppet" : 10,  # Score de détection de faux nez
+    "Anonymity": 5,  # Part des éditions anonymes
+    "Uniformity": 3,  # Monopolisation des contributions
+    "Sporadicity": 2,  # Activité moyenne des contributeurs
+    "Additions/deletions balance": 1,  # Équilibre des contributeurs
 }
 
 GLOB_W = {
-    "heat": 1,
-    "quality": 1,
+    "heat": 1.5,
+    "quality": 2,
     "risk": 1
 }
 
@@ -84,10 +73,77 @@ class MetricError(Exception):
     """Exception personnalisée pour les erreurs de métriques"""
     pass
 
+def extract_clean_title_and_language(input_str: str) -> Tuple[str, Optional[str]]:
+    """
+    Transforme une URL Wikipedia en titre propre et extrait la langue.
+    Si ce n'est pas une URL, retourne la chaîne telle quelle avec None pour la langue.
+    
+    Exemple : 
+    - "https://fr.wikipedia.org/wiki/Emmanuel_Macron" → ("Emmanuel Macron", "fr")
+    - "https://en.wikipedia.org/wiki/Barack_Obama" → ("Barack Obama", "en")
+    - "Emmanuel Macron" → ("Emmanuel Macron", None)
+    """
+    try:
+        if input_str.startswith("http"):
+            parsed = urlparse(input_str)
+            
+            # Vérifier si c'est une URL Wikipedia
+            if "wikipedia.org" in parsed.netloc and "/wiki/" in parsed.path:
+                # Extraire la langue du sous-domaine
+                lang = parsed.netloc.split('.')[0]
+                
+                # Extraire le titre de la page
+                raw_title = parsed.path.split("/wiki/")[1]
+                clean_title = unquote(raw_title.replace("_", " "))
+                
+                return clean_title, lang
+                
+    except Exception as e:
+        logger.warning(f"Erreur d'extraction de titre/langue depuis URL: {input_str} ({e})")
+    
+    return input_str, None  # fallback si ce n'est pas une URL Wikipedia
+
+def detect_language_from_pages(pages: List[str]) -> str:
+    """
+    Détecte la langue à partir d'une liste de pages (URLs ou titres).
+    Retourne la langue la plus fréquente ou "fr" par défaut.
+    """
+    languages = []
+    
+    for page in pages:
+        _, lang = extract_clean_title_and_language(page)
+        if lang:
+            languages.append(lang)
+    
+    if not languages:
+        logger.info("Aucune langue détectée depuis les URLs, utilisation de 'fr' par défaut")
+        return "fr"
+    
+    # Trouver la langue la plus fréquente
+    lang_counts = Counter(languages)
+    most_common_lang = lang_counts.most_common(1)[0][0]
+    
+    # Vérifier la cohérence
+    if len(set(languages)) > 1:
+        logger.warning(f"Langues mixtes détectées: {dict(lang_counts)}. Utilisation de '{most_common_lang}'")
+    else:
+        logger.info(f"Langue détectée automatiquement: '{most_common_lang}'")
+    
+    return most_common_lang
+
+def extract_clean_title(input_str: str) -> str:
+    """
+    Version simplifiée pour compatibilité avec le code existant.
+    Transforme une URL Wikipedia en titre propre, sinon retourne la chaîne telle quelle.
+    Exemple : "https://fr.wikipedia.org/wiki/Emmanuel_Macron" → "Emmanuel Macron"
+    """
+    title, _ = extract_clean_title_and_language(input_str)
+    return title
+
 def safe_metric_executor(metric_func: Callable, metric_name: str, pages: List[str], *args) -> pd.Series:
     """
     Exécute une métrique de manière sécurisée avec gestion d'erreurs.
-    IDENTIQUE À L'ORIGINAL
+    IDENTIQUE À L'ORIGINAL MAIS SCORES MULTIPLIÉS PAR 100
     """
     try:
         start_time = time.time()
@@ -108,6 +164,9 @@ def safe_metric_executor(metric_func: Callable, metric_name: str, pages: List[st
         # Vérification des valeurs manquantes
         result = result.reindex(pages).fillna(0.0)
         
+        # NOUVEAU: Multiplier par 100
+        result = result * 100
+        
         duration = time.time() - start_time
         logger.info(f"✓ {metric_name} terminée en {duration:.2f}s")
         return result
@@ -117,6 +176,21 @@ def safe_metric_executor(metric_func: Callable, metric_name: str, pages: List[st
         # Retourner des valeurs par défaut en cas d'erreur
         return pd.Series(index=pages, data=0.0, name=metric_name)
 
+def generate_test_data(pages: List[str]) -> Dict[str, pd.Series]:
+    """Génère des données de test quand les modules ne sont pas disponibles"""
+    logger.warning("Génération de données de test - modules de métriques manquants")
+    np.random.seed(42)
+    
+    all_metrics = list(HEAT_W.keys()) + list(QUAL_W.keys()) + list(RISK_W.keys())
+    results = {}
+    
+    for metric in all_metrics:
+        values = np.random.beta(2, 5, len(pages))
+        # NOUVEAU: Multiplier par 100 pour les données de test aussi
+        values = values * 100
+        results[metric] = pd.Series(values, index=pages, name=metric)
+    
+    return results
 
 def collect_metrics_parallel(
     pages: List[str],
@@ -146,6 +220,7 @@ def collect_metrics_parallel(
         from wikimetron.metrics.ano_edit import get_anon_edit_score_series
         from wikimetron.metrics.blacklist_metric import get_blacklist_share
         from wikimetron.metrics.revert_risk import get_revert_risk
+        from wikimetron.metrics.faux_nez import get_user_detection_score  # Import du faux nez
     except ImportError as e:
         logger.error(f"Erreur d'import des modules de métriques: {e}")
         # Fallback - générer des données de test
@@ -154,21 +229,22 @@ def collect_metrics_parallel(
     
     # Configuration des métriques à collecter - IDENTIQUE À L'ORIGINAL
     metric_configs = [
-        ("pageview_spike", get_pageview_spikes_normalized, (pages, start, end, lang)),
-        ("edit_spike", get_edit_spikes, (pages, start, end, lang)),
-        ("protection_level", get_protection_scores, (pages, lang)), # infobulle current status
-        ("citation_gap", get_citation_gap, (pages,)),
-        ("event_imbalance", get_event_imbalance_events_only, (pages, start, end, lang)),
-        ("recency_score", get_recency_score, (pages, lang)),
-        ("adq_score", get_adq_score, (pages, lang)), #modifier pour la langue 
-        ("mean_contributor_balance", get_mean_contributor_balance, (pages, lang)),
-        ("monopolization_score", get_monopolization_scores, (pages, lang)),
-        ("avg_activity_score", get_avg_activity_score, (pages, lang)),
-        ("domain_dominance", get_domain_dominance, (pages, lang)),
-        ("talk_intensity", discussion_score, (pages,start, end)),
-        ("anon_edit", get_anon_edit_score_series, (pages, start, end, lang)),
-        ("blacklist_share", get_blacklist_share, (pages, "/app/data/blacklist.csv", lang)),
-        ("revert_risk", get_revert_risk, (pages, start, end, lang))
+        ("Views spikes", get_pageview_spikes_normalized, (pages, start, end, lang)),
+        ("Edits spikes", get_edit_spikes, (pages, start, end, lang)),
+        ("Protection", get_protection_scores, (pages, lang)), # infobulle current status
+        ("Citations need", get_citation_gap, (pages,)),
+        ("Additions/deletions balance ", get_event_imbalance_events_only, (pages, start, end, lang)),
+        ("Staleness", get_recency_score, (pages, lang)),
+        ("Featured article", get_adq_score, (pages, lang)), #modifier pour la langue 
+        ("Additions/deletions balance", get_mean_contributor_balance, (pages, lang)),
+        ("Uniformity", get_monopolization_scores, (pages, lang)),
+        ("Sporadicity", get_avg_activity_score, (pages, lang)),
+        ("Sources homogeneity", get_domain_dominance, (pages, lang)),
+        ("Discussion intensity", discussion_score, (pages,start, end)),
+        ("Anonymity", get_anon_edit_score_series, (pages, start, end, lang)),
+        ("Suspicious sources", get_blacklist_share, (pages, "wikimetron/metrics/blacklist.csv", lang)),
+        ("Edits revert probability", get_revert_risk, (pages, start, end, lang)),
+        ("sockpuppet", get_user_detection_score, (pages, "wikimetron/metrics/faux_nez.csv", lang))  # Faux nez
     ]
     
     logger.info(f"Démarrage collecte parallèle de {len(metric_configs)} métriques pour {len(pages)} pages")
@@ -201,20 +277,6 @@ def collect_metrics_parallel(
     
     return results
 
-def generate_test_data(pages: List[str]) -> Dict[str, pd.Series]:
-    """Génère des données de test quand les modules ne sont pas disponibles"""
-    logger.warning("Génération de données de test - modules de métriques manquants")
-    np.random.seed(42)
-    
-    all_metrics = list(HEAT_W.keys()) + list(QUAL_W.keys()) + list(RISK_W.keys())
-    results = {}
-    
-    for metric in all_metrics:
-        values = np.random.beta(2, 5, len(pages))
-        results[metric] = pd.Series(values, index=pages, name=metric)
-    
-    return results
-
 def compute_scores(
     pages: List[str],
     start: str,
@@ -225,6 +287,7 @@ def compute_scores(
     """
     Fonction principale : collecte parallèle + calcul des scores.
     LOGIQUE IDENTIQUE À L'ORIGINAL - même signature, mêmes calculs
+    SCORES MULTIPLIÉS PAR 100
     """
     pages = [extract_clean_title(p) for p in pages]
     
@@ -247,7 +310,7 @@ def compute_scores(
     logger.info(f"Métriques Quality disponibles: {available_qual_metrics}")
     logger.info(f"Métriques Risk disponibles: {available_risk_metrics}")
     
-    # Calcul Heat: scores bruts et normalisés - IDENTIQUE
+    # Calcul Heat: scores bruts et normalisés - IDENTIQUE MAIS MULTIPLIÉS PAR 100
     if available_heat_metrics:
         heat_weights = pd.Series({m: HEAT_W[m] for m in available_heat_metrics})
         heat_raw = (metrics[available_heat_metrics] * heat_weights).sum(axis=1)
@@ -256,7 +319,7 @@ def compute_scores(
         heat_raw = pd.Series(index=metrics.index, data=0.0)
         heat = pd.Series(index=metrics.index, data=0.0)
     
-    # Calcul Quality: scores bruts et normalisés - IDENTIQUE
+    # Calcul Quality: scores bruts et normalisés - IDENTIQUE MAIS MULTIPLIÉS PAR 100
     if available_qual_metrics:
         qual_weights = pd.Series({m: QUAL_W[m] for m in available_qual_metrics})
         quality_raw = (metrics[available_qual_metrics] * qual_weights).sum(axis=1)
@@ -265,7 +328,7 @@ def compute_scores(
         quality_raw = pd.Series(index=metrics.index, data=0.0)
         quality = pd.Series(index=metrics.index, data=0.0)
     
-    # Calcul Risk: scores bruts et normalisés - IDENTIQUE
+    # Calcul Risk: scores bruts et normalisés - IDENTIQUE MAIS MULTIPLIÉS PAR 100
     if available_risk_metrics:
         risk_weights = pd.Series({m: RISK_W[m] for m in available_risk_metrics})
         risk_raw = (metrics[available_risk_metrics] * risk_weights).sum(axis=1)
@@ -274,7 +337,7 @@ def compute_scores(
         risk_raw = pd.Series(index=metrics.index, data=0.0)
         risk = pd.Series(index=metrics.index, data=0.0)
     
-    # 4. Score final: moyenne simple des 3 catégories normalisées - IDENTIQUE
+    # 4. Score final: moyenne simple des 3 catégories normalisées - IDENTIQUE MAIS MULTIPLIÉ PAR 100
     sensitivity = (heat + quality + risk) / 3
     
     total_time = time.time() - pipeline_start
@@ -284,7 +347,7 @@ def compute_scores(
     return ScoringResult(heat, quality, risk, sensitivity, heat_raw, quality_raw, risk_raw), metrics
 
 # ═══════════════════════════════════════════════════════════════════════
-# ADAPTATION POUR WIKIMETRON - Wrappers pour l'API uniquement
+# ADAPTATION POUR WIKIMETRON - Wrappers pour l'API avec détection automatique
 # ═══════════════════════════════════════════════════════════════════════
 
 def convert_scoring_result_to_dict(scoring_result: ScoringResult, metrics: pd.DataFrame, 
@@ -352,40 +415,42 @@ def compute_scores_for_api(
     pages: List[str],
     start_date: str,
     end_date: str,
-    language: str = "fr",
+    language: Optional[str] = None,
     max_workers: int = MAX_WORKERS
 ) -> Dict[str, Any]:
     """
-    Wrapper pour l'API qui utilise le pipeline original sans modification de logique.
+    Wrapper pour l'API qui utilise le pipeline original avec détection automatique de langue.
     Accepte aussi bien des titres de pages que des URLs Wikipedia.
+    
+    Args:
+        pages: Liste des pages (URLs ou titres)
+        start_date: Date de début
+        end_date: Date de fin
+        language: Langue forcée (optionnel). Si None, détection automatique depuis les URLs
+        max_workers: Nombre de workers parallèles
     """
     try:
-        from urllib.parse import urlparse, unquote
-
-        def extract_clean_title(input_str: str) -> str:
-            try:
-                if input_str.startswith("http"):
-                    path = urlparse(input_str).path
-                    if "/wiki/" in path:
-                        raw_title = path.split("/wiki/")[1]
-                        return unquote(raw_title.replace("_", " "))
-            except Exception as e:
-                logger.warning(f"Erreur d'extraction de titre depuis URL: {input_str} ({e})")
-            return input_str
-
-        # 🔁 Nettoyage des pages fournies
-        pages = [extract_clean_title(p) for p in pages]
+        # 🔁 Nettoyage des pages et détection de langue
+        clean_pages = [extract_clean_title(p) for p in pages]
+        
+        # Détection automatique de langue si non spécifiée
+        if language is None:
+            detected_language = detect_language_from_pages(pages)
+            logger.info(f"Langue détectée automatiquement: {detected_language}")
+        else:
+            detected_language = language
+            logger.info(f"Langue forcée: {detected_language}")
 
         pipeline_start = time.time()
 
-        # Appel DIRECT du pipeline original
-        scoring_result, metrics = compute_scores(pages, start_date, end_date, language, max_workers)
+        # Appel DIRECT du pipeline original avec la langue détectée
+        scoring_result, metrics = compute_scores(clean_pages, start_date, end_date, detected_language, max_workers)
 
         processing_time = time.time() - pipeline_start
 
         # Conversion pour l'API uniquement
         return convert_scoring_result_to_dict(
-            scoring_result, metrics, pages, start_date, end_date, language, processing_time
+            scoring_result, metrics, clean_pages, start_date, end_date, detected_language, processing_time
         )
 
     except Exception as e:
@@ -398,7 +463,7 @@ def compute_scores_for_api(
                 "analyzed_pages": 0,
                 "start_date": start_date,
                 "end_date": end_date,
-                "language": language,
+                "language": language or "unknown",
                 "error": str(e)
             },
             "scores": {},
@@ -408,7 +473,7 @@ def compute_scores_for_api(
 def run_analysis(task_id: str, request_data: Dict[str, Any]) -> None:
     """
     Lance une analyse en arrière-plan pour l'API.
-    Utilise le pipeline original sans modification.
+    Utilise le pipeline original avec détection automatique de langue.
     """
     try:
         logger.info(f"Début de l'analyse pour la tâche {task_id}")
@@ -417,7 +482,7 @@ def run_analysis(task_id: str, request_data: Dict[str, Any]) -> None:
         pages = request_data.get("pages", [])
         start_date = request_data.get("start_date")
         end_date = request_data.get("end_date")
-        language = request_data.get("language", "fr")
+        language = request_data.get("language")  # Peut être None pour détection automatique
         
         # Lancer l'analyse avec le pipeline original
         results = compute_scores_for_api(pages, start_date, end_date, language)
@@ -429,15 +494,15 @@ def run_analysis(task_id: str, request_data: Dict[str, Any]) -> None:
         logger.error(f"Erreur lors de l'analyse de la tâche {task_id}: {str(e)}")
         raise
 
-# CLI pour tests - IDENTIQUE À L'ORIGINAL
+# CLI pour tests - ADAPTÉ pour la détection automatique
 if __name__ == "__main__":
     import argparse
     
-    ap = argparse.ArgumentParser(description="Pipeline de scoring Wikipedia parallélisé")
-    ap.add_argument("pages", nargs="+", help="Liste des pages à analyser")
+    ap = argparse.ArgumentParser(description="Pipeline de scoring Wikipedia parallélisé avec détection automatique de langue")
+    ap.add_argument("pages", nargs="+", help="Liste des pages à analyser (URLs ou titres)")
     ap.add_argument("--start", default="2025-04-21", help="Date de début")
     ap.add_argument("--end", default="2025-05-21", help="Date de fin")
-    ap.add_argument("--lang", default="fr", help="Langue Wikipedia")
+    ap.add_argument("--lang", default=None, help="Langue Wikipedia (détection automatique si non spécifié)")
     ap.add_argument("--workers", type=int, default=MAX_WORKERS, help="Nombre de workers parallèles")
     ap.add_argument("--verbose", "-v", action="store_true", help="Mode verbose")
     
@@ -447,24 +512,32 @@ if __name__ == "__main__":
         logging.getLogger().setLevel(logging.DEBUG)
     
     try:
+        # Détection automatique de langue si non spécifiée
+        if args.lang is None:
+            detected_lang = detect_language_from_pages(args.pages)
+            print(f"Langue détectée automatiquement: {detected_lang}")
+        else:
+            detected_lang = args.lang
+        
         # Utilisation DIRECTE du pipeline original
-        scores, detail = compute_scores(args.pages, args.start, args.end, args.lang, args.workers)
+        scores, detail = compute_scores(args.pages, args.start, args.end, detected_lang, args.workers)
         
         print("\n" + "="*60)
         print(f"RAPPORT DE SCORING - {len(args.pages)} pages analysées")
+        print(f"Langue utilisée: {detected_lang}")
         print("="*60)
         
-        # Le reste du code de rapport est identique à l'original...
         print("\n### Métriques brutes")
         print(detail.round(3))
         
         # Scores finaux identiques
+        clean_titles = [extract_clean_title(p) for p in args.pages]
         final = pd.DataFrame({
             "heat": scores.heat.round(3),
             "quality": scores.quality.round(3),
             "risk": scores.risk.round(3),
             "sensitivity": scores.sensitivity.round(3)
-        }, index=args.pages)
+        }, index=clean_titles)
         
         print("\n### Scores finaux (normalisés)")
         print(final)

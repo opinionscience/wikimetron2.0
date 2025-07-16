@@ -1,43 +1,153 @@
-// File: src/components/results/MetricsDisplay.jsx
-import React from 'react';
+import React, { useState } from 'react';
 
 const renderMetricValue = (value) => {
   if (typeof value === 'number') {
-    return value.toFixed(3);
+    return value.toFixed(1);
   }
-  return value || '0.000';
+  return value || '0.0';
 };
 
-// Catégories de métriques avec descriptions
+// Définitions des tooltips pour chaque métrique
+const METRIC_TOOLTIPS = {
+  'Views spikes': 'Pics de vues anormaux qui peuvent indiquer des événements controversés ou de l\'attention médiatique',
+  'Edits spikes': 'Pics d\'éditions qui peuvent signaler des guerres d\'édition ou des controverses',
+  'Edits revert probability': 'Probabilité qu\'une édition soit annulée, indicateur de controverse',
+  'Protection': 'Niveau de protection de la page contre les modifications non autorisées',
+  'Discussion intensity': 'Intensité des discussions sur la page de discussion',
+  'Suspicious sources': 'Sources potentiellement non fiables ou biaisées',
+  'Featured article': 'Statut d\'article de qualité reconnu par la communauté',
+  'Citations need': 'Nombre de citations manquantes ou nécessaires',
+  'Staleness': 'Ancienneté du contenu, indicateur de fraîcheur des informations',
+  'Sources homogeneity': 'Diversité des sources utilisées dans l\'article',
+  'Additions/deletions balance': 'Équilibre entre les ajouts et suppressions de contenu',
+  'Anonymity': 'Proportion d\'éditions par des utilisateurs anonymes',
+  'Uniformity': 'Uniformité des patterns d\'édition',
+  'Sporadicity': 'Irrégularité dans la fréquence des éditions'
+};
+
+// Catégories de métriques avec descriptions - Compatible avec votre code existant
 const METRIC_CATEGORIES = {
   heat: {
-    metrics: ['pageview_spike', 'edit_spike', 'revert_risk', 'protection_level', 'talk_intensity'],
-    title: '🔥 HEAT - Activité et Attention',
-    description: 'Mesure l\'intensité de l\'activité et de l\'attention portée à la page',
+    metrics: ['Views spikes', 'Edits spikes', 'Edits revert probability', 'Protection', 'Discussion intensity'],
+    title: 'Heat risk',
+    description: 'Indicateurs de controverse et d\'activité anormale',
     color: '#ef4444'
   },
   quality: {
-    metrics: ['citation_gap', 'blacklist_share', 'event_imbalance', 'recency_score', 'adq_score', 'domain_dominance'],
-    title: '⭐ QUALITY - Fiabilité du Contenu',
-    description: 'Évalue la qualité et la fiabilité du contenu de la page',
+    metrics: ["Suspicious sources", 'Featured article', 'Citations need', 'Staleness', 'Sources homogeneity', 'Additions/deletions balance '],
+    title: 'Quality risk', 
+    description: 'Indicateurs de qualité et fiabilité du contenu',
     color: '#3b82f6'
   },
   risk: {
-    metrics: ['anon_edit', 'mean_contributor_balance', 'monopolization_score', 'avg_activity_score'],
-    title: '⚠️ RISK - Controverses et Conflits',
-    description: 'Identifie les risques de controverses et de conflits d\'édition',
+    metrics: ["sockpuppet", 'Anonymity', 'Uniformity', 'Sporadicity', 'Additions/deletions balance'],
+    title: 'Behaviour risk',
+    description: 'Indicateurs de comportements d\'édition suspects',
     color: '#f59e0b'
   }
 };
 
+// Couleurs pour les pages (palette moderne)
+const PAGE_COLORS = [
+  '#3b82f6', // Bleu
+  '#ef4444', // Rouge
+  '#10b981', // Vert
+  '#f59e0b', // Orange
+  '#8b5cf6', // Violet
+  '#06b6d4'  // Cyan
+];
+
+// Composant Tooltip amélioré
+const Tooltip = ({ children, text, position = 'top', isFirst = false }) => {
+  const [isVisible, setIsVisible] = useState(false);
+
+  // Fonction pour formater le texte avec retour à la ligne tous les 4 mots
+  const formatText = (text) => {
+    const words = text.split(' ');
+    const lines = [];
+    for (let i = 0; i < words.length; i += 7) {
+      lines.push(words.slice(i, i + 7).join(' '));
+    }
+    return lines.join('\n');
+  };
+
+  return (
+    <div 
+      className="wikimetron-tooltip-container"
+      onMouseEnter={() => setIsVisible(true)}
+      onMouseLeave={() => setIsVisible(false)}
+      style={{ 
+        position: 'relative', 
+        display: 'inline-block',
+        cursor: 'help'
+      }}
+    >
+      {children}
+      {isVisible && (
+        <div 
+          className="wikimetron-tooltip"
+          style={{
+            position: 'absolute',
+            top: '0',
+            left: '120%',
+            backgroundColor: '#1f2937',
+            color: 'white',
+            padding: '8px 12px',
+            borderRadius: '6px',
+            fontSize: '12px',
+            lineHeight: '1.4',
+            maxWidth: '280px',
+            minWidth: '120px',
+            zIndex: 9999,
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.25)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            wordWrap: 'break-word',
+            pointerEvents: 'none',
+            opacity: 0,
+            animation: 'tooltipFadeIn 0.2s ease-out forwards',
+            whiteSpace: 'pre-line'
+          }}
+        >
+          {formatText(text)}
+          <div
+            style={{
+              position: 'absolute',
+              top: '8px',
+              right: '100%',
+              marginRight: '3px',
+              borderTop: '5px solid transparent',
+              borderBottom: '5px solid transparent',
+              borderRight: '5px solid #1f2937',
+              width: 0,
+              height: 0
+            }}
+          />
+        </div>
+      )}
+      
+      <style jsx>{`
+        @keyframes tooltipFadeIn {
+          from {
+            opacity: 0;
+            transform: translateX(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+      `}</style>
+    </div>
+  );
+};
 const MetricsDisplay = ({ pages, comparisonMode }) => {
   // Fonction pour calculer les statistiques de comparaison
   const getComparisonStats = (metricKey) => {
     const values = pages.map(page => page.metrics?.[metricKey] || 0);
     const validValues = values.filter(v => v !== null && v !== undefined);
-    
+
     if (validValues.length === 0) return null;
-    
+
     return {
       min: Math.min(...validValues),
       max: Math.max(...validValues),
@@ -47,218 +157,105 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
     };
   };
 
-  // Composant pour une métrique individuelle
-  const MetricItem = ({ metricKey, categoryColor, stats }) => {
+  // Composant pour une métrique individuelle avec layout horizontal - compatible avec vos classes CSS
+  const MetricItem = ({ metricKey, stats }) => {
     if (!stats) return null;
-
+    
     return (
-      <div className="metric-detail-item">
-        <div className="metric-name-section">
-          <span className="metric-name">{metricKey}</span>
+      <div className="metric-item-horizontal">
+        <div className="metric-name-horizontal">
+          <Tooltip text={METRIC_TOOLTIPS[metricKey] || 'Information sur cette métrique'}>
+            <span style={{ 
+              borderBottom: '1px dotted #9ca3af',
+              paddingBottom: '1px'
+            }}>
+              {metricKey}
+            </span>
+          </Tooltip>
         </div>
-        
-        {comparisonMode && pages.length > 1 ? (
-          <div className="metric-comparison-values">
-            {pages.map((page, index) => {
-              const value = page.metrics?.[metricKey];
-              const isMax = value === stats.max;
-              const isMin = value === stats.min;
-              
+        <div className="metric-values-horizontal">
+          {comparisonMode && pages.length > 1 ? (
+            pages.map((page, index) => {
+              const value = page.metrics?.[metricKey] || 0;
+              const pageColor = PAGE_COLORS[index % PAGE_COLORS.length];
               return (
-                <div 
-                  key={index} 
-                  className={`comparison-value ${isMax ? 'max-value' : ''} ${isMin ? 'min-value' : ''}`}
-                  style={{ borderLeftColor: categoryColor }}
-                >
-                  <span className="page-indicator">#{index + 1}</span>
-                  <span className="value">{renderMetricValue(value)}</span>
+                <div key={index} className="metric-page-value" style={{color: pageColor}}>
+                  <span className="page-value">
+                    {renderMetricValue(value)}
+                  </span>
                 </div>
               );
-            })}
-            <div className="stats-summary">
-              <span>Δ {renderMetricValue(stats.range)}</span>
-            </div>
-          </div>
-        ) : (
-          <div className="metric-single-value">
-            <span className="value" style={{ color: categoryColor }}>
+            })
+          ) : (
+            <div className="metric-single-value-horizontal">
               {renderMetricValue(stats.values[0])}
-            </span>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     );
   };
 
-  // Composant pour une catégorie de métriques
-  const MetricCategory = ({ categoryKey, category }) => {
+  // Composant pour une catégorie de métriques - compatible avec vos classes CSS
+  const MetricCategory = ({ categoryKey }) => {
     const categoryData = METRIC_CATEGORIES[categoryKey];
-    const mainScore = comparisonMode && pages.length > 1 
-      ? pages.map(page => page.scores?.[categoryKey] || 0)
-      : [pages[0]?.scores?.[categoryKey] || 0];
-
-    const avgScore = mainScore.reduce((sum, score) => sum + score, 0) / mainScore.length;
-    const maxScore = Math.max(...mainScore);
-    const minScore = Math.min(...mainScore);
+    // Calcul des scores de catégorie
+    const mainScore = pages.map(page => page.scores?.[categoryKey] || 0);
 
     return (
-      <div className={`metrics-category-new ${categoryKey}`}>
-        {/* Header avec score principal */}
-        <div className="category-header">
-          <div className="category-title-section">
-            <h4 style={{ color: categoryData.color }}>
+      <div className={`metric-category-horizontal ${categoryKey}`}>
+        {/* Header avec titre et description */}
+        <div className="metric-category-header-horizontal">
+          <Tooltip text={categoryData.description}>
+            <h5 className="metric-category-title-horizontal" style={{ cursor: 'help' }}>
               {categoryData.title}
-            </h4>
-            <p className="category-description">
-              {categoryData.description}
-            </p>
-          </div>
-          
-          <div className="category-main-score">
-            {comparisonMode && pages.length > 1 ? (
-              <div className="comparison-main-scores">
-                <div className="main-score-primary" style={{ color: categoryData.color }}>
-                  {renderMetricValue(avgScore)}
-                </div>
-                <div className="main-score-details">
-                  <span>Moyenne</span>
-                  <div className="score-range">
-                    {renderMetricValue(minScore)} - {renderMetricValue(maxScore)}
-                  </div>
-                </div>
+            </h5>
+          </Tooltip>
+          <p className="metric-category-description-horizontal">{categoryData.description}</p>
+          {/* Score principal ou comparaison des scores */}
+          <div className="category-scores-horizontal">
+            {pages.length > 1 ? (
+              <div className="category-single-score">
+                {mainScore.map((score, index) => (
+                  <React.Fragment key={index}>
+                    {renderMetricValue(score)}%
+                    {index < mainScore.length - 1 && ' VS '}
+                  </React.Fragment>
+                ))}
               </div>
             ) : (
-              <div className="single-main-score">
-                <div className="main-score-primary" style={{ color: categoryData.color }}>
-                  {renderMetricValue(mainScore[0])}
-                </div>
-                <div className="main-score-label">Score {categoryKey}</div>
+              <div className="category-single-score">
+                {renderMetricValue(mainScore[0])}%
               </div>
             )}
           </div>
         </div>
-
         {/* Métriques détaillées */}
-        <div className="metrics-details">
-          <h5>Métriques détaillées</h5>
-          <div className="metrics-list-new">
-            {categoryData.metrics.map(metricKey => {
-              const stats = getComparisonStats(metricKey);
-              return (
-                <MetricItem
-                  key={metricKey}
-                  metricKey={metricKey}
-                  categoryColor={categoryData.color}
-                  stats={stats}
-                />
-              );
-            })}
-          </div>
+        <div className="metrics-list-horizontal">
+          {categoryData.metrics.map(metricKey => {
+            const stats = getComparisonStats(metricKey);
+            return (
+              <MetricItem
+                key={metricKey}
+                metricKey={metricKey}
+                stats={stats}
+              />
+            );
+          })}
         </div>
       </div>
     );
   };
 
   return (
-    <div className="metrics-display-container">
-      {/* Header */}
-      <div className="metrics-header">
-        <h3>
-          📋 {comparisonMode && pages.length > 1 
-            ? `Métriques détaillées - Comparaison de ${pages.length} pages`
-            : 'Métriques détaillées'
-          }
-        </h3>
-        {comparisonMode && pages.length > 1 && (
-          <div className="comparison-legend">
-            <div className="legend-item">
-              <div className="legend-indicator max"></div>
-              <span>Valeur maximale</span>
-            </div>
-            <div className="legend-item">
-              <div className="legend-indicator min"></div>
-              <span>Valeur minimale</span>
-            </div>
-            <div className="legend-item">
-              <div className="legend-indicator delta"></div>
-              <span>Écart (Δ)</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Grille des catégories */}
-      <div className="metrics-categories-grid">
-        {Object.entries(METRIC_CATEGORIES).map(([categoryKey, category]) => (
+    <div className="metrics-container-horizontal">
+      <div className="metrics-categories-horizontal">
+        {Object.entries(METRIC_CATEGORIES).map(([categoryKey]) => (
           <MetricCategory
             key={categoryKey}
             categoryKey={categoryKey}
-            category={category}
           />
         ))}
-      </div>
-
-      {/* Résumé de sensibilité */}
-      <div className="sensitivity-summary">
-        <h4>🎯 Résumé de sensibilité</h4>
-        {comparisonMode && pages.length > 1 ? (
-          <div className="sensitivity-comparison">
-            <div className="sensitivity-grid">
-              {pages.map((page, index) => {
-                const sensitivity = page.scores?.sensitivity || 0;
-                const getSensitivityLevel = (score) => {
-                  if (score >= 0.7) return { label: 'Très élevée', color: '#ef4444' };
-                  if (score >= 0.5) return { label: 'Élevée', color: '#f59e0b' };
-                  if (score >= 0.3) return { label: 'Modérée', color: '#3b82f6' };
-                  return { label: 'Faible', color: '#10b981' };
-                };
-                
-                const level = getSensitivityLevel(sensitivity);
-                
-                return (
-                  <div key={index} className="sensitivity-item">
-                    <div className="sensitivity-page">
-                      <span className="page-number">#{index + 1}</span>
-                      <span className="page-title" title={page.title}>
-                        {page.title?.length > 20 
-                          ? `${page.title.substring(0, 20)}...` 
-                          : page.title
-                        }
-                      </span>
-                    </div>
-                    <div className="sensitivity-score" style={{ color: level.color }}>
-                      <span className="score-value">{renderMetricValue(sensitivity)}</span>
-                      <span className="score-level">{level.label}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="sensitivity-single">
-            <div className="sensitivity-main">
-              <span className="sensitivity-score-large">
-                {renderMetricValue(pages[0]?.scores?.sensitivity)}
-              </span>
-              <span className="sensitivity-label">Score de sensibilité global</span>
-            </div>
-            <div className="sensitivity-breakdown">
-              <div className="breakdown-item">
-                <span>Heat:</span>
-                <span>{renderMetricValue(pages[0]?.scores?.heat)}</span>
-              </div>
-              <div className="breakdown-item">
-                <span>Quality:</span>
-                <span>{renderMetricValue(pages[0]?.scores?.quality)}</span>
-              </div>
-              <div className="breakdown-item">
-                <span>Risk:</span>
-                <span>{renderMetricValue(pages[0]?.scores?.risk)}</span>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

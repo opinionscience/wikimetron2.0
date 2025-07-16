@@ -3,7 +3,11 @@ import React, { useState, useRef } from 'react';
 import ConfigurationPage from './components/ConfigurationPage';
 import ResultsSection from './components/ResultsPage';
 import Layout from './components/Layout';
-import './components/MainPage.css';
+// IMPORTANT : MainPage.css en PREMIER pour que ResultsPage.css override
+import './styles/MainPage.css';
+
+
+import './components/ResultsPage.css';
 
 const WikimetronApp = () => {
   const [analysisState, setAnalysisState] = useState({

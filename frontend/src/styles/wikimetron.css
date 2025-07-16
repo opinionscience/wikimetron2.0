@@ -22,6 +22,8 @@
 .body, html {
   background-color: #f8fdf6; /* Version très claire de #cafda6 */
   min-height: 100vh;
+ font-family: 'Barlow', sans-serif !important;
+
 }
 
 /* Alternative avec un dégradé subtil */
@@ -36,46 +38,56 @@ body {
   background-color: #fbfefc;
 }
 */
-
-/* Ajustement du header pour qu'il s'intègre bien */
 .minimal-header {
   position: static;
-  background: rgba(248, 253, 246, 0.9); /* Légèrement transparent */
+  background: linear-gradient(to bottom, #8888, #f8fdf6);
   border: none;
   box-shadow: none;
   transition: transform 0.3s ease;
 }
 
-/* Le reste du CSS reste identique */
+
 .minimal-container {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 1rem 1.5rem;
+  padding: 1rem 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items:flex-start;
   gap: 0.5rem;
 }
 
-.minimal-title {
-  margin: 0;
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--color-text);
-  text-transform: uppercase;
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
-.minimal-subtitle {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--color-text-light);
+.header-logo-link {
+  display: flex;
+  align-items: center;
 }
+
+.header-logo {
+  
+  height: 2rem;
+  width: auto;
+}
+
+.minimal-title {
+  margin: 0 0 0 20px;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text);
+  font-family: 'Linux Libertine O', serif;
+  vertical-align: bottom;
+}
+
 
 .minimal-back-btn {
   font-size: 0.9rem;
   padding: 0.5rem 1rem;
 }
-
 /* Configuration Container */
 .config-container {
   max-width: 800px;
@@ -439,7 +451,7 @@ body {
 }
 
 .score-value {
-  font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+  font-family: "Barlow", monospace;
   font-weight: 700;
   color: var(--color-text);
   background: var(--color-border-light);
@@ -485,11 +497,11 @@ body {
 }
 
 .footer-logo {
-  height: 40px;
+  height: 200px;
   width: auto;
-  max-width: 120px;
+  max-width: 200px;
   object-fit: contain;
-  filter: brightness(0) invert(1); /* Rend les logos blancs pour s'adapter au fond noir */
+ 
 }
 .footer-logo-2 {
   height: 100px; /* Plus grand que les 40px par défaut */
