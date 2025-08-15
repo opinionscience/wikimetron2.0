@@ -14,9 +14,9 @@ get_blacklisted_domains(pages, blacklist_csv="blacklist.csv", lang="fr") -> dict
     3. Prend le nom de domaine (`urllib.parse.urlparse(url).hostname`).
     4. Logique de ratio NOUVELLE :
        - 0 domaine blacklisté → ratio = 0.0
-       - 1 domaine blacklisté → ratio = 0.5  
-       - 2+ domaines blacklistés → ratio = 1.0
-* Retourne un `Series` avec ratios (0.0, 0.5, ou 1.0).
+       
+       - 1+ domaines blacklistés → ratio = 1.0
+* Retourne un `Series` avec ratios (0.0, ou 1.0).
 * La fonction `get_blacklisted_domains` retourne les domaines blacklistés trouvés par page.
 """
 
@@ -82,9 +82,8 @@ def get_blacklist_share(pages: List[str], blacklist_csv="blacklist.csv", lang="f
             num_blacklisted = len(blacklisted_domains)
             if num_blacklisted == 0:
                 ratios[p] = 0.0
-            elif num_blacklisted == 1:
-                ratios[p] = 0.5
-            else:  # 2 ou plus
+
+            else:  # 1 ou plus
                 ratios[p] = 1.0
         time.sleep(0.1)
     return pd.Series(ratios, name="blacklist_share")

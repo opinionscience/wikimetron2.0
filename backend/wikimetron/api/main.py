@@ -111,16 +111,63 @@ def detect_language_from_request(pages: List[str], requested_language: Optional[
     """
     Détermine la langue à utiliser : soit celle demandée, soit détection automatique
     """
+    logger.info(f"🔍 === DEBUG detect_language_from_request ===")
+    logger.info(f"📄 Pages reçues: {pages}")
+    logger.info(f"📄 Type des pages: {[type(p) for p in pages]}")
+    logger.info(f"🌐 Langue demandée: {requested_language}")
+    
     if requested_language:
-        logger.info(f"Langue forcée par l'utilisateur: {requested_language}")
+        logger.info(f"✅ Langue forcée par l'utilisateur: {requested_language}")
         return requested_language
     
     # Import de la fonction de détection
-    from wikimetron.metrics.pipeline import detect_language_from_pages
-    detected = detect_language_from_pages(pages)
-    logger.info(f"Langue détectée automatiquement: {detected}")
-    return detected
-
+    try:
+        logger.info(f"📦 Tentative d'import detect_language_from_pages...")
+        from wikimetron.metrics.pipeline import detect_language_from_pages
+        logger.info(f"✅ Import detect_language_from_pages: OK")
+        
+        logger.info(f"🔧 Appel detect_language_from_pages avec: {pages}")
+        detected = detect_language_from_pages(pages)
+        logger.info(f"🎯 Résultat detect_language_from_pages: {detected}")
+        
+        logger.info(f"✅ Langue détectée automatiquement: {detected}")
+        logger.info(f"🔍 === FIN DEBUG detect_language_from_request ===")
+        return detected
+        
+    except ImportError as e:
+        logger.error(f"❌ Erreur d'import detect_language_from_pages: {e}")
+        fallback = "fr"
+        logger.info(f"🔄 Fallback sur: {fallback}")
+        return fallback
+        
+    except Exception as e:
+        logger.error(f"❌ Erreur dans detect_language_from_pages: {e}")
+        logger.error(f"📚 Traceback complet:")
+        logger.error(traceback.format_exc())
+        
+        # 🔧 TENTATIVE DE DÉTECTION MANUELLE EN CAS D'ERREUR
+        logger.info(f"🔧 Tentative de détection manuelle...")
+        
+        for page in pages:
+            logger.info(f"🔍 Analyse de la page: '{page}'")
+            if isinstance(page, str) and "wikipedia.org" in page:
+                try:
+                    import re
+                    match = re.search(r'https?://([a-z]{2})\.wikipedia\.org', page)
+                    if match:
+                        manual_lang = match.group(1)
+                        logger.info(f"✅ Langue extraite manuellement: {manual_lang}")
+                        return manual_lang
+                    else:
+                        logger.info(f"❌ Pas de match regex pour: {page}")
+                except Exception as manual_error:
+                    logger.error(f"❌ Erreur extraction manuelle: {manual_error}")
+            else:
+                logger.info(f"❌ Pas une URL Wikipedia: {page}")
+        
+        fallback = "fr"
+        logger.info(f"🔄 Fallback final sur: {fallback}")
+        return fallback
 @app.get("/")
 async def root():
     return {

@@ -234,11 +234,11 @@ def collect_metrics_parallel(
         ("Protection", get_protection_scores, (pages, lang)), # infobulle current status
         ("Citations need", get_citation_gap, (pages,)),
         ("Additions/deletions balance ", get_event_imbalance_events_only, (pages, start, end, lang)),
-        ("Staleness", get_recency_score, (pages, lang)),
+        ("Staleness", get_recency_score, (pages, lang, 365, end)),
         ("Featured article", get_adq_score, (pages, lang)), #modifier pour la langue 
-        ("Additions/deletions balance", get_mean_contributor_balance, (pages, lang)),
-        ("Uniformity", get_monopolization_scores, (pages, lang)),
-        ("Sporadicity", get_avg_activity_score, (pages, lang)),
+        ("Additions/deletions balance", get_mean_contributor_balance, (pages, lang, 10, 100, end)),
+        ("Uniformity", get_monopolization_scores, (pages, lang,10, end)),
+        ("Sporadicity", get_avg_activity_score, (pages, lang, 10, 100, end)),
         ("Sources homogeneity", get_domain_dominance, (pages, lang)),
         ("Discussion intensity", discussion_score, (pages,start, end)),
         ("Anonymity", get_anon_edit_score_series, (pages, start, end, lang)),

@@ -22,46 +22,126 @@ const EditChart = ({ pages, analysisConfig }) => {
   // Couleurs pour les différentes pages (même palette que PageviewsChart)
   const colors = [
     '#3b82f6', // Bleu
-  '#ef4444', // Rouge
-  '#10b981', // Vert
-  '#f59e0b', // Orange
-  '#8b5cf6', // Violet
-  '#06b6d4'  // Cyan
+    '#ef4444', // Rouge
+    '#10b981', // Vert
+    '#f59e0b', // Orange
+    '#8b5cf6', // Violet
+    '#06b6d4'  // Cyan
   ];
+
+  // 🔍 FONCTION DE DEBUG POUR COMPRENDRE COMMENT LA LANGUE ARRIVE (identique à PageviewsChart)
+  const debugAnalysisConfig = () => {
+    console.log('🔍 === DEBUG EDIT CHART ===');
+    console.log('📋 analysisConfig complet:', analysisConfig);
+    console.log('🌐 analysisConfig.language:', analysisConfig?.language);
+    console.log('🎯 analysisConfig.detectedLanguage:', analysisConfig?.detectedLanguage);
+    console.log('📄 pages reçues:', pages);
+    console.log('📑 selectedPages:', selectedPages);
+    console.log('⚙️ editorType:', editorType);
+    console.log('===============================');
+  };
+
+  // 🔧 LOGIQUE AMÉLIORÉE POUR DÉTERMINER LA LANGUE (identique à PageviewsChart)
+  const determineLanguage = () => {
+    debugAnalysisConfig();
+    
+    // Essayer plusieurs sources de langue dans l'ordre de priorité
+    let language = null;
+    let source = 'fallback';
+    
+    // 1. Langue explicitement détectée par l'API
+    if (analysisConfig?.detectedLanguage) {
+      language = analysisConfig.detectedLanguage;
+      source = 'API detected';
+    }
+    // 2. Langue configurée manuellement
+    else if (analysisConfig?.language) {
+      language = analysisConfig.language;
+      source = 'manual config';
+    }
+    // 3. Essayer de détecter depuis les pages elles-mêmes
+    else if (pages && pages.length > 0) {
+      // Chercher une URL Wikipedia dans les pages
+      for (const page of pages) {
+        const pageTitle = page.title || page;
+        if (typeof pageTitle === 'string' && pageTitle.includes('wikipedia.org')) {
+          try {
+            const match = pageTitle.match(/https?:\/\/([a-z]{2})\.wikipedia\.org/);
+            if (match) {
+              language = match[1];
+              source = 'URL detection';
+              break;
+            }
+          } catch (e) {
+            console.warn('Erreur détection langue depuis URL:', e);
+          }
+        }
+      }
+    }
+    
+    // 4. Fallback par défaut
+    if (!language) {
+      language = 'fr';
+      source = 'default fallback';
+    }
+    
+    console.log(`🎯 Langue déterminée: "${language}" (source: ${source})`);
+    return language;
+  };
 
   // Récupérer les données d'éditions
   const fetchEditData = async () => {
-    if (!selectedPages.length || !analysisConfig) return;
+    if (!selectedPages.length || !analysisConfig) {
+      console.log('⏸️ Pas de pages sélectionnées ou config manquante');
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
       const pageNames = selectedPages.map(page => page.title || page);
+      const languageToUse = determineLanguage();
+      
+      console.log('📤 Requête éditions:');
+      console.log('  - Pages:', pageNames);
+      console.log('  - Langue:', languageToUse);
+      console.log('  - Type éditeur:', editorType);
+      console.log('  - Période:', analysisConfig.startDate, 'à', analysisConfig.endDate);
       
       const data = await apiService.fetchEditTimeseriesForChart(
         pageNames,
         analysisConfig.startDate,
         analysisConfig.endDate,
-        analysisConfig.language || 'fr',
-        editorType
+        { language: languageToUse, editorType: editorType }  // 🔧 FIX: Même signature que PageviewsChart
       );
+
+      console.log('📥 Données éditions reçues:', data);
+      console.log('🔍 Métadonnées langue:', {
+        requested: data?.metadata?.requested_language,
+        detected: data?.metadata?.detected_language
+      });
 
       setEditData(data);
     } catch (err) {
-      console.error('Erreur récupération éditions:', err);
+      console.error('❌ Erreur récupération éditions:', err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Effet pour charger les données
+  // Effets avec debug (identique à PageviewsChart)
   useEffect(() => {
+    console.log('🔄 Effect: pages changed:', pages);
     setSelectedPages(pages?.slice(0, 5) || []);
   }, [pages]);
 
   useEffect(() => {
+    console.log('🔄 Effect: config or selection changed');
+    console.log('  - analysisConfig:', analysisConfig);
+    console.log('  - selectedPages:', selectedPages);
+    console.log('  - editorType:', editorType);
     fetchEditData();
   }, [selectedPages, analysisConfig, editorType]);
 
@@ -113,15 +193,12 @@ const EditChart = ({ pages, analysisConfig }) => {
 
   return (
     <div className="pageviews-chart-container">
-      
 
-      
 
       {/* Sélecteur de pages - compact (même design que PageviewsChart) */}
       {pages && pages.length > 1 && (
-        <div className="pageviews-selector-compact">
-          
-          <div className="pages-selector-compact">
+        <div className="chart-pages-selector-minimal">
+          <div className="pages-selector-chips">
             {pages.map((page, index) => {
               const isSelected = selectedPages.some(p => (p.title || p) === (page.title || page));
               const color = colors[index % colors.length];
@@ -129,20 +206,18 @@ const EditChart = ({ pages, analysisConfig }) => {
               return (
                 <button
                   key={index}
-                  className={`page-selector-chip ${isSelected ? 'selected' : ''}`}
+                  className={`page-chip-minimal ${isSelected ? 'selected' : ''}`}
                   onClick={() => handlePageToggle(index)}
                   disabled={!isSelected && selectedPages.length >= 10}
                   style={isSelected ? { 
                     borderColor: color, 
                     backgroundColor: `${color}15`,
-                    color: color,
-                  
+                    color: color
                   } : {}}
                 >
-                  
                   <span className="chip-title" title={page.title || page}>
-                    {(page.title || page).length > 20 
-                      ? `${(page.title || page).substring(0, 20)}...` 
+                    {(page.title || page).length > 15 
+                      ? `${(page.title || page).substring(0, 15)}...` 
                       : (page.title || page)
                     }
                   </span>
@@ -156,16 +231,16 @@ const EditChart = ({ pages, analysisConfig }) => {
 
       {/* États de chargement et erreur */}
       {loading && (
-        <div className="pageviews-loading">
+        <div className="chart-loading-minimal">
           <div className="mini-spinner"></div>
-          <span>Récupération des données d'éditions...</span>
+          <span>Chargement des données d'éditions...</span>
         </div>
       )}
 
       {error && (
-        <div className="pageviews-error">
+        <div className="chart-error-minimal">
           <span>❌ {error}</span>
-          <button onClick={fetchEditData} className="retry-btn">
+          <button onClick={fetchEditData} className="retry-btn-minimal">
             Réessayer
           </button>
         </div>
@@ -173,8 +248,8 @@ const EditChart = ({ pages, analysisConfig }) => {
 
       {/* Graphique */}
       {editData && !loading && !error && (
-        <div className="chart-wrapper">
-          <ResponsiveContainer width="100%" height={350}>
+        <div className="chart-wrapper-simple">
+          <ResponsiveContainer width="100%" height={300}>
             <LineChart data={editData.data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis 
@@ -182,7 +257,7 @@ const EditChart = ({ pages, analysisConfig }) => {
                 tick={{ fontSize: 11, fill: '#666' }}
                 angle={-45}
                 textAnchor="end"
-                height={70}
+                height={60}
                 interval="preserveStartEnd"
               />
               <YAxis 
@@ -190,7 +265,6 @@ const EditChart = ({ pages, analysisConfig }) => {
                 tickFormatter={formatNumber}
               />
               <Tooltip content={<CustomTooltip />} />
-              {/* <Legend /> supprimé */}
               
               {selectedPages.map((page, index) => {
                 const pageName = page.title || page;
@@ -211,8 +285,6 @@ const EditChart = ({ pages, analysisConfig }) => {
           </ResponsiveContainer>
         </div>
       )}
-
-      
     </div>
   );
 };

@@ -15,8 +15,7 @@ const QUICK_DATE_RANGES = [
   { label: 'Last month', days: 30 },
   { label: 'Last 3 months', days: 90 },
   { label: 'Last 6 months', days: 180 },
-  { label: 'This year', months: 'year' },
-  { label: 'Last year', months: 'lastYear' },
+  { label: 'This year', months: 'year' }
 ];
 
 // Fonction pour calculer les dates

@@ -9,43 +9,46 @@ const renderMetricValue = (value) => {
 
 // Définitions des tooltips pour chaque métrique
 const METRIC_TOOLTIPS = {
-  'Views spikes': 'Pics de vues anormaux qui peuvent indiquer des événements controversés ou de l\'attention médiatique',
-  'Edits spikes': 'Pics d\'éditions qui peuvent signaler des guerres d\'édition ou des controverses',
-  'Edits revert probability': 'Probabilité qu\'une édition soit annulée, indicateur de controverse',
-  'Protection': 'Niveau de protection de la page contre les modifications non autorisées',
-  'Discussion intensity': 'Intensité des discussions sur la page de discussion',
-  'Suspicious sources': 'Sources potentiellement non fiables ou biaisées',
-  'Featured article': 'Statut d\'article de qualité reconnu par la communauté',
-  'Citations need': 'Nombre de citations manquantes ou nécessaires',
-  'Staleness': 'Ancienneté du contenu, indicateur de fraîcheur des informations',
-  'Sources homogeneity': 'Diversité des sources utilisées dans l\'article',
-  'Additions/deletions balance': 'Équilibre entre les ajouts et suppressions de contenu',
-  'Anonymity': 'Proportion d\'éditions par des utilisateurs anonymes',
-  'Uniformity': 'Uniformité des patterns d\'édition',
-  'Sporadicity': 'Irrégularité dans la fréquence des éditions'
+  'Views spikes': 'Abnormal view spikes that may indicate controversial events or media attention',
+  'Edits spikes': 'Edit spikes that may signal edit wars or controversies',
+  'Edits revert probability': 'Probability that an edit will be reverted, indicating controversy',
+  'Protection': 'Page protection level against unauthorized modifications',
+  'Discussion intensity': 'Intensity of discussions on the talk page',
+  'Suspicious sources': 'Potentially unreliable or biased sources',
+  'Featured article': 'Quality article status recognized by the community',
+  'Citations need': 'Number of missing or needed citations',
+  'Staleness': 'Content age, indicator of information freshness',
+  'Sources homogeneity': 'Diversity of sources used in the article',
+  'Additions/deletions balance': 'Balance between content additions and deletions in the contributions of each contributor of the page',
+  'Additions/deletions balance ': 'Balance between content additions and deletions',
+  'Anonymity': 'Proportion of edits by anonymous users',
+  'Uniformity': 'Uniformity of contributor editing patterns',
+  'Sporadicity': 'Irregularity in contributor editing frequency',
+  'sockpuppet': 'Presence of sockpuppet accounts, indicating potential manipulation',
 };
 
-// Catégories de métriques avec descriptions - Compatible avec votre code existant
+// Categories of metrics with descriptions - Compatible with your existing code
 const METRIC_CATEGORIES = {
   heat: {
     metrics: ['Views spikes', 'Edits spikes', 'Edits revert probability', 'Protection', 'Discussion intensity'],
     title: 'Heat risk',
-    description: 'Indicateurs de controverse et d\'activité anormale',
+    description: 'Indicators of controversy and abnormal activity',
     color: '#ef4444'
   },
   quality: {
     metrics: ["Suspicious sources", 'Featured article', 'Citations need', 'Staleness', 'Sources homogeneity', 'Additions/deletions balance '],
-    title: 'Quality risk', 
-    description: 'Indicateurs de qualité et fiabilité du contenu',
+    title: 'Quality risk',
+    description: 'Indicators of content quality and reliability',
     color: '#3b82f6'
   },
   risk: {
     metrics: ["sockpuppet", 'Anonymity', 'Uniformity', 'Sporadicity', 'Additions/deletions balance'],
     title: 'Behaviour risk',
-    description: 'Indicateurs de comportements d\'édition suspects',
+    description: 'Indicators of suspicious editing behaviors',
     color: '#f59e0b'
   }
 };
+
 
 // Couleurs pour les pages (palette moderne)
 const PAGE_COLORS = [
@@ -212,23 +215,35 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
             </h5>
           </Tooltip>
           <p className="metric-category-description-horizontal">{categoryData.description}</p>
-          {/* Score principal ou comparaison des scores */}
-          <div className="category-scores-horizontal">
-            {pages.length > 1 ? (
-              <div className="category-single-score">
-                {mainScore.map((score, index) => (
-                  <React.Fragment key={index}>
-                    {renderMetricValue(score)}%
-                    {index < mainScore.length - 1 && ' VS '}
-                  </React.Fragment>
-                ))}
-              </div>
-            ) : (
-              <div className="category-single-score">
-                {renderMetricValue(mainScore[0])}%
-              </div>
-            )}
-          </div>
+{/* Score principal ou comparaison des scores */}
+<div className="category-scores-horizontal">
+  {pages.length > 1 ? (
+    <div 
+      className="category-single-score"
+      style={{
+        fontSize: mainScore.length > 2 ? '0.9em' : 'inherit',
+        whiteSpace: mainScore.length > 2 ? 'nowrap' : 'normal',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
+      }}
+    >
+      {mainScore.map((score, index) => (
+        <React.Fragment key={index}>
+          <span style={{ color: PAGE_COLORS[index % PAGE_COLORS.length] }}>
+            {renderMetricValue(score)}%
+          </span>
+          {index < mainScore.length - 1 && ' VS '}
+        </React.Fragment>
+      ))}
+    </div>
+  ) : (
+    <div className="category-single-score">
+      <span style={{ color: PAGE_COLORS[0] }}>
+        {renderMetricValue(mainScore[0])}%
+      </span>
+    </div>
+  )}
+</div>
         </div>
         {/* Métriques détaillées */}
         <div className="metrics-list-horizontal">

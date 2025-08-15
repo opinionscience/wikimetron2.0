@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+""" 
 Script simplifié pour analyser la monopolisation d'une page Wikipedia.
 Renvoie la proportion de contributions du contributeur le plus actif parmi les N dernières révisions.
 Ajout de logs pour mesurer le temps d'exécution.
@@ -9,10 +9,21 @@ import argparse
 import time
 from collections import Counter
 import pandas as pd
+from datetime import datetime
 
 HEADERS = {"User-Agent": "MonopolizationSimple/1.0"}
 
-def get_monopolization_score(title: str, lang: str = "fr", limit: int = 100):
+def parse_date(date_str):
+    if not date_str:
+        return None
+    
+    try:
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        raise ValueError(f"Format de date invalide. Utilisez YYYY-MM-DD (ex: 2024-01-01)")
+
+def get_monopolization_score(title: str, lang: str = "fr", limit: int = 100, end=None):
     """
     Récupère les dernières `limit` révisions de la page `title` et calcule la proportion
     de contributions du contributeur le plus actif.
@@ -29,6 +40,10 @@ def get_monopolization_score(title: str, lang: str = "fr", limit: int = 100):
         "rvlimit": limit,
         "formatversion": "2"
     }
+    
+    if end:
+        params["rvstart"] = end
+    
     resp = requests.get(url, headers=HEADERS, params=params)
     resp.raise_for_status()
     data = resp.json()
@@ -53,15 +68,20 @@ def get_monopolization_score(title: str, lang: str = "fr", limit: int = 100):
     proportion = top_count / total
     return top_user, top_count, total, proportion
 
-def get_monopolization_scores(pages, lang="fr", limit=10):
+def get_monopolization_scores(pages, lang="fr", limit=10, end=None):
     """
-    Version pipeline : retourne une Series indexée par page,
+    Version pipeline : retourne une Series indexée par page,
     valeur = proportion du top contributeur sur les N dernières révisions.
     """
+    # Parser la date seulement si elle est fournie
+    parsed_date = None
+    if end:
+        parsed_date = parse_date(end)
+    
     results = {}
     for page in pages:
         try:
-            _, _, _, proportion = get_monopolization_score(page, lang, limit)
+            _, _, _, proportion = get_monopolization_score(page, lang, limit, parsed_date)
             results[page] = proportion
         except Exception:
             results[page] = 0.0
@@ -76,11 +96,21 @@ def main():
     parser.add_argument("--lang", default="fr", help="Code langue (défaut: fr)")
     parser.add_argument("--limit", type=int, default=10,
                         help="Nombre de révisions à analyser (défaut: 100)")
+    parser.add_argument("--end", help="Date de fin au format YYYY-MM-DD")
     args = parser.parse_args()
+
+    # Parser la date seulement si elle est fournie
+    parsed_date = None
+    if args.end:
+        try:
+            parsed_date = parse_date(args.end)
+        except ValueError as e:
+            print(f"Erreur: {e}")
+            return
 
     try:
         user, count, total, score = get_monopolization_score(
-            args.title, args.lang, args.limit
+            args.title, args.lang, args.limit, parsed_date
         )
         if user is None:
             print(f"Aucune contribution valide pour '{args.title}'.")
