@@ -41,7 +41,7 @@ const Layout = ({ children, pageTitle, subtitle, onBackToConfig }) => (
             />
           </a>
           <a
-            href="https://fr.wikipedia.org/wiki/Wikip%C3%A9dia:Accueil_principal"
+            href="https://www.wikimedia.fr/"
             target="_blank"
             rel="noopener noreferrer"
             className="footer-logo-link"

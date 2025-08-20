@@ -206,14 +206,15 @@ const SensitivityScoresHeader = ({ pages, selectedIndices }) => {
             position="bottom"
           >
             <div className="sensitivity-score-card">
-              <div className="sensitivity-score-number">
-                {formatMetricValue(page.scores?.sensitivity)}%
-              </div>
               <div className="sensitivity-score-label">
                 {page.title?.length > 15 
                   ? `${page.title.substring(0, 15)}...` 
                   : page.title}
               </div>
+              <div className="sensitivity-score-number">
+                {formatMetricValue(page.scores?.sensitivity)}%
+              </div>
+              
               
             </div>
           </Tooltip>
@@ -229,144 +230,42 @@ const SensitivityScoresHeader = ({ pages, selectedIndices }) => {
 
 // Vue d'état initial avec preview des résultats flouté
 const IdleView = () => (
-  <div className="results-container">
-    {/* Contenu de preview flouté en arrière-plan */}
-    <div className="results-preview-background">
-      <div className="preview-header">
-        <div className="preview-breadcrumb">
-          <span>Analysis Results</span>
-          <span className="breadcrumb-separator">›</span>
-          <span>Ready to analyze</span>
-        </div>
-        <div className="preview-actions">
-          <div className="preview-button">↑ New Analysis</div>
-          <div className="preview-button">Export Results</div>
-        </div>
-      </div>
-
-      <div className="preview-content">
-        {/* Section des scores principaux */}
-        <div className="preview-scores-section">
-          <h2 className="preview-section-title">Sensitivity Scores</h2>
-          <div className="preview-scores-grid">
-            <div className="preview-score-card heat">
-              <div className="score-icon">🔥</div>
-              <div className="score-value">72.5</div>
-              <div className="score-label">Heat Score</div>
-              <div className="score-trend">High Activity</div>
-            </div>
-            <div className="preview-score-card quality">
-              <div className="score-icon">⭐</div>
-              <div className="score-value">85.2</div>
-              <div className="score-label">Quality Score</div>
-              <div className="score-trend">Excellent</div>
-            </div>
-            <div className="preview-score-card risk">
-              <div className="score-icon">⚠️</div>
-              <div className="score-value">34.1</div>
-              <div className="score-label">Risk Score</div>
-              <div className="score-trend">Low Risk</div>
-            </div>
-            <div className="preview-score-card sensitivity">
-              <div className="score-icon">📊</div>
-              <div className="score-value">63.9</div>
-              <div className="score-label">Sensitivity</div>
-              <div className="score-trend">Moderate</div>
-            </div>
-          </div>
-        </div>
-
-        
-
-        {/* Section graphiques */}
-        <div className="preview-charts-section">
-          <div className="preview-chart-container">
-            <h3 className="chart-title">Sensitivity Profile</h3>
-            <div className="preview-radar-chart">
-              <div className="radar-center">
-                <div className="radar-value">63.9</div>
-                <div className="radar-label">Overall</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="preview-chart-container">
-            <h3 className="chart-title">Page Views Timeline</h3>
-            <div className="preview-chart">
-              <div className="chart-bars">
-                <div className="chart-bar" style={{height: '60%'}}></div>
-                <div className="chart-bar" style={{height: '80%'}}></div>
-                <div className="chart-bar" style={{height: '45%'}}></div>
-                <div className="chart-bar" style={{height: '90%'}}></div>
-                <div className="chart-bar" style={{height: '75%'}}></div>
-                <div className="chart-bar" style={{height: '65%'}}></div>
-                <div className="chart-bar" style={{height: '85%'}}></div>
-                <div className="chart-bar" style={{height: '70%'}}></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Section métriques détaillées */}
-        <div className="preview-metrics-section">
-          <h2 className="preview-section-title">Detailed Metrics</h2>
-          <div className="preview-metrics-grid">
-            <div className="metric-item">
-              <div className="metric-label">Views Spikes</div>
-              <div className="metric-value">8.2</div>
-            </div>
-            <div className="metric-item">
-              <div className="metric-label">Edit Activity</div>
-              <div className="metric-value">15.7</div>
-            </div>
-            <div className="metric-item">
-              <div className="metric-label">Protection Level</div>
-              <div className="metric-value">3.1</div>
-            </div>
-            <div className="metric-item">
-              <div className="metric-label">Source Quality</div>
-              <div className="metric-value">7.9</div>
-            </div>
-            <div className="metric-item">
-              <div className="metric-label">Anonymous Edits</div>
-              <div className="metric-value">23%</div>
-            </div>
-            <div className="metric-item">
-              <div className="metric-label">Revert Risk</div>
-              <div className="metric-value">4.2</div>
-            </div>
-          </div>
-        </div>
+  <>
+    <div className="results-container">
+      <div className="results-preview-background"></div>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+        <img 
+          src="Barchar.svg" 
+          alt="Bar chart preview" 
+          style={{ maxWidth: '480px', width: '100%', opacity: 0.7, borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }} 
+        />
       </div>
     </div>
-
-    {/* Overlay avec message d'état */}
     <div className="results-overlay">
       <div className="overlay-content">
-        <div className="overlay-icon">📊</div>
+        
         <h3>Your results will appear here</h3>
-        <p>Configure your analysis parameters above and click "Analyze" to see detailed Wikipedia insights like these</p>
         <div className="preview-features">
           <div className="feature-item">
-            <span className="feature-icon">🎯</span>
+            
             <span>Sensitivity Profiles</span>
           </div>
           <div className="feature-item">
-            <span className="feature-icon">📈</span>
+            
             <span>Interactive Charts</span>
           </div>
           <div className="feature-item">
-            <span className="feature-icon">🔍</span>
+            
             <span>Detailed Metrics</span>
           </div>
           <div className="feature-item">
-            <span className="feature-icon">⚖️</span>
+            
             <span>Comparison Mode</span>
           </div>
         </div>
       </div>
     </div>
-  </div>
+  </>
 );
 
 // Vue de chargement avec preview partiellement visible
@@ -388,7 +287,7 @@ const LoadingView = ({ analysisData, progress = 0 }) => {
       <div className="results-preview-background loading">
         <div className="preview-header">
           <div className="preview-breadcrumb">
-            <span>Analysis Results</span>
+            <span>ANALYSIS RESULTS</span>
             <span className="breadcrumb-separator">›</span>
             <span>Analysis in progress...</span>
           </div>
@@ -487,37 +386,24 @@ const LoadingView = ({ analysisData, progress = 0 }) => {
 
           <div className="loading-steps">
             <div className={`step ${progress > 20 ? 'completed' : progress > 0 ? 'active' : ''}`}>
-              <span className="step-icon">🔍</span>
+              
               <span>Collecting data</span>
             </div>
             <div className={`step ${progress > 50 ? 'completed' : progress > 20 ? 'active' : ''}`}>
-              <span className="step-icon">⚙️</span>
+              
               <span>Processing metrics</span>
             </div>
             <div className={`step ${progress > 80 ? 'completed' : progress > 50 ? 'active' : ''}`}>
-              <span className="step-icon">📊</span>
+              
               <span>Calculating scores</span>
             </div>
             <div className={`step ${progress > 95 ? 'completed' : progress > 80 ? 'active' : ''}`}>
-              <span className="step-icon">✨</span>
+              
               <span>Finalizing results</span>
             </div>
           </div>
 
-          {analysisData?.pages && analysisData.pages.length > 0 && (
-            <div className="analysis-info">
-              <div className="info-item">
-                <span className="info-label">Pages:</span>
-                <span className="info-value">{analysisData.pages.join(', ')}</span>
-              </div>
-              {analysisData.detectedLanguage && (
-                <div className="info-item">
-                  <span className="info-label">Language:</span>
-                  <span className="info-value">🌐 {analysisData.detectedLanguage.toUpperCase()}</span>
-                </div>
-              )}
-            </div>
-          )}
+          
         </div>
       </div>
     </div>
@@ -601,16 +487,16 @@ const ResultsView = ({ results, analysisConfig, onNewAnalysis }) => {
         <h2>Analysis Results</h2>
         <div className="results-actions">
           <button
-            onClick={onNewAnalysis}
-            className="action-button-modern secondary"
-          >
-            ↑ New Analysis
-          </button>
-          <button
             onClick={handleExportResults}
             className="action-button-modern primary"
           >
             Export Results
+          </button>
+          <button
+            onClick={onNewAnalysis}
+            className="action-button-modern secondary"
+          >
+            ↑ New Analysis
           </button>
         </div>
       </div>

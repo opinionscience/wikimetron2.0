@@ -48,13 +48,15 @@ body {
 
 
 .minimal-container {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 1rem 0;
-  display: flex;
-  flex-direction: column;
-  align-items:flex-start;
-  gap: 0.5rem;
+ align-items: flex-start;
+    display: flex
+;
+    flex-direction: column;
+    gap: .5rem;
+    margin: 0 auto;
+    max-width: 1280px;
+    padding: 1rem 0;
+    margin-left: 100px;
 }
 
 .header-content {
@@ -125,13 +127,13 @@ body {
 .form-section {
   display: flex;
   flex-direction: column;
-  gap: 1rem; /* espace entre chaque enfant */
+  gap: 12px; /* espace entre chaque enfant */
   
   /* Tes règles existantes : */
   background: white;
   border-radius: 1.5rem;
   padding: 2rem;
-  margin-bottom: 2rem;
+  margin-bottom: 9px;
   border: 2px solid #f0f9ff;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
@@ -139,13 +141,11 @@ body {
 
 
 .form-section:hover {
-  border-color: #cafda6;
+  
   box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
-.form-section-header {
-  margin-bottom: 1.5rem;
-}
+
 
 .form-section-header h3 {
   font-size: 1.5rem;
@@ -217,10 +217,6 @@ body {
   color: var(--color-text);
 }
 
-/* Date Range Selector */
-.quick-dates, .custom-dates {
-  margin-bottom: 2rem;
-}
 
 .quick-dates h4, .custom-dates h4 {
   font-size: 1.1rem;
@@ -231,7 +227,7 @@ body {
 
 .quick-dates-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
   gap: 0.75rem;
 }
 
@@ -249,7 +245,8 @@ body {
 
 .quick-date-btn:hover {
   border-color: #cafda6;
-  transform: translateY(-1px);
+  background-color: rgb(209, 248, 194);
+  
 }
 
 .quick-date-btn.active {
@@ -258,23 +255,24 @@ body {
   color: var(--color-text);
 }
 
+.custom-dates {
+  width: 100%;
+}
+
 .date-inputs {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 1rem;
-  align-items: end;
-}
-
-.date-input-group {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  flex-wrap: wrap;
 }
 
-.date-input-group label {
+.date-label {
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--color-text-light);
+  white-space: nowrap;
+  flex-shrink: 0; /* Empêche les labels de rétrécir */
 }
 
 .date-input {
@@ -282,14 +280,8 @@ body {
   border: 2px solid var(--color-border);
   border-radius: 0.75rem;
   font-size: 0.95rem;
-}
-
-.date-separator {
-  font-size: 1.5rem;
-  color: var(--color-text-light);
-  font-weight: 600;
-  text-align: center;
-  padding-bottom: 0.5rem;
+  flex: 1; /* Les inputs s'étendent pour remplir l'espace disponible */
+  min-width: 150px;
 }
 
 /* Analysis Preview */
@@ -339,7 +331,7 @@ body {
 /* Submit Section */
 .submit-section {
   text-align: center;
-  margin-top: 2rem;
+
 }
 
 .submit-btn {
@@ -348,13 +340,14 @@ body {
   font-weight: 600;
   padding: 1.25rem 2.5rem;
   border-radius: 1.25rem;
-  background: #86efac;
+  background:#cafda6;;
   color: #191919;
 }
 
 .submit-btn:hover:not(:disabled) {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 35px -5px rgb(202, 253, 166);
+  
+  background-color: #a0de2c;
+
 }
 
 .submit-help {
@@ -466,13 +459,14 @@ body {
   background: var(--color-black);
   color: var(--color-white);
   border-top: 1px solid #374151;
-  margin-top: 4rem;
+  padding-bottom: 10px;
+ 
 }
 
 .footer-content {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2.5rem 1.5rem;
+  padding: 0rem 1.5rem;
   text-align: center;
 }
 
@@ -531,9 +525,7 @@ body {
   transition: opacity 0.3s ease;
 }
 
-.eu-logo:hover {
-  opacity: 1;
-}
+
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -619,4 +611,29 @@ body {
 .btn:focus-visible {
   outline: 2px solid var(--color-secondary);
   outline-offset: 2px;
+}
+
+/* === Forcer Barlow partout === */
+/* 1) Charger la police (ou mets l'équivalent <link> dans le <head>) */
+@import url("https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800&display=swap");
+
+/* 2) Variable et base */
+:root { --font-sans: "Barlow", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans"; }
+
+html, body {
+  font-family: var(--font-sans) !important;
+}
+
+/* 3) Propager l’héritage à tous les éléments (y compris formulaires) */
+*, *::before, *::after,
+input, textarea, select, button,
+code, pre, kbd, samp {
+  font-family: inherit !important;
+}
+
+/* 4) Neutraliser les surcharges existantes dans ta feuille */
+.minimal-title,
+.pages-input,
+.score-value {
+  font-family: inherit !important;
 }

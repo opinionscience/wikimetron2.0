@@ -15,7 +15,8 @@ const QUICK_DATE_RANGES = [
   { label: 'Last month', days: 30 },
   { label: 'Last 3 months', days: 90 },
   { label: 'Last 6 months', days: 180 },
-  { label: 'This year', months: 'year' }
+  { label: 'This year', months: 'year' },
+  { label: 'Last year', months: 'lastYear' }
 ];
 
 // Fonction pour calculer les dates
@@ -91,66 +92,53 @@ const PagesInput = ({ urlValue, pageNameValue, selectedLanguage, onUrlChange, on
       </div>
       
       {/* Input principal pour URL */}
-      <div className="page-input-group">
-        <span className="input-label">Page URL :</span>
-        <input
-          type="text"
-          value={urlValue || ''}
-          onChange={(e) => onUrlChange(e.target.value)}
-          placeholder="https://en.wikipedia.org/wiki/..."
-          className="form-input page-url-input"
-        />
-        {detectedLanguage && (
-          <span className="detected-language-badge">
-             {LANGUAGE_OPTIONS.find(opt => opt.value === detectedLanguage)?.label?.replace(/🇫🇷|🇺🇸|🇩🇪|🇪🇸|🇮🇹/, '').trim() || detectedLanguage.charAt(0).toUpperCase() + detectedLanguage.slice(1)}
-          </span>
-        )}
+      <div className="page-input-group full-width">
+        <span className="input-label">Page URL:</span>
+        <div className="url-input-row" style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+          <input
+            type="text"
+            value={urlValue || ''}
+            onChange={(e) => onUrlChange(e.target.value)}
+            placeholder="https://en.wikipedia.org/wiki/the_page_title"
+            className="form-input page-url-input"
+            style={{ backgroundColor: '#f5f5f5', flex: 1 }}
+          />
+          {detectedLanguage && (
+            <span className="detected-language-badge" style={{ marginLeft: 8 }}>
+              {LANGUAGE_OPTIONS.find(opt => opt.value === detectedLanguage)?.label?.replace(/🇫🇷|🇺🇸|🇩🇪|🇪🇸|🇮🇹/, '').trim() || detectedLanguage.charAt(0).toUpperCase() + detectedLanguage.slice(1)}
+            </span>
+          )}
+        </div>
       </div>
-      
-      {/* Séparateur OR */}
       <div className="input-separator">
         <span>OR</span>
       </div>
       
-      {/* Input pour nom de page + sélecteur de langue */}
       <div className="page-name-group">
-        <span className="input-label">Page name :</span>
-        <input
-          type="text"
-          value={pageNameValue || ''}
-          onChange={(e) => onPageNameChange(e.target.value)}
-          placeholder="Type the title of a page"
-          className="form-input page-name-input"
-        />
-        <span className="and-language">and language :</span>
-        <select 
-          value={selectedLanguage || ''} 
-          onChange={(e) => onLanguageChange(e.target.value)}
-          className="form-select language-select"
-        >
-          <option value="">Choose</option>
-          {LANGUAGE_OPTIONS.map(option => (
+    <span className="input-label">Page name:</span>
+    <input
+        type="text"
+        value={pageNameValue || ''}
+        onChange={(e) => onPageNameChange(e.target.value)}
+        placeholder="Type the title of a page"
+        className="form-input page-name-input"
+        style={{ backgroundColor: '#f5f5f5' }}
+    />
+    <span className="and-language">Language:</span>
+    <select
+        value={selectedLanguage || ''}
+        onChange={(e) => onLanguageChange(e.target.value)}
+        className="form-select language-select"
+    >
+        <option value="">Choose</option>
+        {LANGUAGE_OPTIONS.map(option => (
             <option key={option.value} value={option.value}>
-              {option.label}
+                {option.label}
             </option>
-          ))}
-        </select>
-      </div>
-      
-      {/* Bouton pour ajouter une autre page */}
-      <div className="add-page-section">
-        <button 
-          type="button" 
-          className="add-page-btn"
-          onClick={() => {
-            const newPages = [...(additionalPages || []), { url: '', pageName: '', language: '' }];
-            onAdditionalPagesChange(newPages);
-          }}
-        >
-          <span className="plus-icon">+</span>
-          Compare with another page (optional)
-        </button>
-      </div>
+        ))}
+    </select>
+</div>
+
       
       {/* Pages supplémentaires */}
       {additionalPages && additionalPages.length > 0 && additionalPages.map((page, index) => {
@@ -159,24 +147,9 @@ const PagesInput = ({ urlValue, pageNameValue, selectedLanguage, onUrlChange, on
         
         return (
           <div key={index} className="additional-page-group">
-            <div className="additional-page-header">
-              <span className="additional-page-label">Additional page {index + 1}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  const newPages = additionalPages.filter((_, i) => i !== index);
-                  onAdditionalPagesChange(newPages);
-                }}
-                className="remove-page-btn"
-                title="Remove this page"
-              >
-                ×
-              </button>
-            </div>
-            
             {/* URL pour page supplémentaire */}
             <div className="page-input-group">
-              <span className="input-label">Page URL :</span>
+              <span className="input-label">Page URL:</span>
               <input
                 type="text"
                 value={page.url || ''}
@@ -201,13 +174,14 @@ const PagesInput = ({ urlValue, pageNameValue, selectedLanguage, onUrlChange, on
             </div>
             
             {/* Séparateur OR pour page supplémentaire */}
-            <div className="input-separator-small">
-              <span>OR</span>
-            </div>
+            <div className="input-separator">
+        <span>OR</span>
+      </div>
+      
             
             {/* Nom de page + langue pour page supplémentaire */}
             <div className="page-name-group">
-              <span className="input-label">Page name :</span>
+              <span className="input-label">Page name:</span>
               <input
                 type="text"
                 value={page.pageName || ''}
@@ -224,7 +198,7 @@ const PagesInput = ({ urlValue, pageNameValue, selectedLanguage, onUrlChange, on
                 placeholder="Type the title of a page"
                 className="form-input page-name-input"
               />
-              <span className="and-language">and language :</span>
+              <span className="and-language">Language:</span>
               <select 
                 value={page.language || ''} 
                 onChange={(e) => {
@@ -242,9 +216,37 @@ const PagesInput = ({ urlValue, pageNameValue, selectedLanguage, onUrlChange, on
                 ))}
               </select>
             </div>
+
+            {/* Bouton de suppression repositionné en bas à droite */}
+            <button
+              type="button"
+              onClick={() => {
+                const newPages = additionalPages.filter((_, i) => i !== index);
+                onAdditionalPagesChange(newPages);
+              }}
+              className="remove-page-btn remove-page-btn-bottom"
+              title="Remove this page"
+            >
+              ×
+            </button>
           </div>
         );
       })}
+
+      {/* Bouton pour ajouter une autre page - maintenant toujours en bas */}
+      <div className="add-page-section">
+        <button 
+          type="button" 
+          className="add-page-btn"
+          onClick={() => {
+            const newPages = [...(additionalPages || []), { url: '', pageName: '', language: '' }];
+            onAdditionalPagesChange(newPages);
+          }}
+        >
+          <span className="plus-icon">+</span>
+          Compare with another page (optional)
+        </button>
+      </div>
       
       {/* Informations en bas */}
       <div className="form-bottom-section">
@@ -278,7 +280,7 @@ const DateRangeSelector = ({ startDate, endDate, onStartChange, onEndChange }) =
   return (
     <div className="form-section">
       <div className="form-section-header">
-        <h3>Timeframe :</h3>
+        <h3>Timeframe</h3>
       </div>
       
       {/* Boutons de période rapide */}
@@ -298,37 +300,35 @@ const DateRangeSelector = ({ startDate, endDate, onStartChange, onEndChange }) =
       </div>
 
       {/* Séparateur */}
-      <div className="custom-dates-separator">
-        <span>OR choose from :</span>
+      <div className="input-separator">
+        <span>OR</span>
       </div>
 
       {/* Sélection de dates personnalisées */}
-      <div className="custom-dates">
-        <div className="date-inputs">
-          <div className="date-input-group">
-            <input 
-              type="date" 
-              value={startDate} 
-              onChange={(e) => {
-                onStartChange(e.target.value);
-                handleCustomDate();
-              }}
-              className="form-input date-input"
-            />
-          </div>
-          <div className="date-separator">to :</div>
-          <div className="date-input-group">
-            <input 
-              type="date" 
-              value={endDate} 
-              onChange={(e) => {
-                onEndChange(e.target.value);
-                handleCustomDate();
-              }}
-              className="form-input date-input"
-            />
-          </div>
-        </div>
+<div className="custom-dates">
+  <div className="date-inputs">
+    <span className="date-label">From:</span>
+    <input 
+      type="date" 
+      value={startDate} 
+      onChange={(e) => {
+        onStartChange(e.target.value);
+        handleCustomDate();
+      }}
+      className="form-input date-input"
+    />
+    <span className="date-label">to:</span>
+    <input 
+      type="date" 
+      value={endDate} 
+      onChange={(e) => {
+        onEndChange(e.target.value);
+        handleCustomDate();
+      }}
+      className="form-input date-input"
+    />
+  </div>
+
       </div>
     </div>
   );

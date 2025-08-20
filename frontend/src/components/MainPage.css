@@ -1,4 +1,4 @@
-/* File: src/components/MainPage.css */
+/* File: src/components/MainPage.css *form
 
 .main-page-container {
   min-height: 100vh;
@@ -10,7 +10,6 @@
 .configuration-section {
   background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
   border-bottom: 1px solid #e2e8f0;
-  padding: 2rem 0;
   position: relative;
 }
 
@@ -1041,14 +1040,15 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+ 
 }
 
 .input-separator, .custom-dates-separator {
   text-align: center;
-  margin: 16px 0;
-  color: #666;
-  font-weight: 500;
+    color: #495057;
+    font-weight: 500;
+   
+    white-space: nowrap;
 }
 
 .and-language {
@@ -1100,9 +1100,7 @@
 }
 
 /* Styles pour la gestion des pages additionnelles */
-.add-page-section {
-  margin: 16px 0;
-}
+
 
 .add-page-btn {
   display: flex;
@@ -1180,8 +1178,8 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin-top: 16px;
-  padding-top: 12px;
+
+  padding-top: 10px;
   border-top: 1px solid #e9ecef;
 }
 
@@ -1239,9 +1237,10 @@
 }
 
 .and-language {
-  white-space: nowrap;
-  color: #6c757d;
-  font-size: 14px;
+      color: #495057;
+    font-weight: 500;
+    min-width: fit-content;
+    white-space: nowrap;
 }
 
 .language-select {
@@ -1250,7 +1249,7 @@
 
 .input-separator {
   text-align: center;
-  margin: 20px 0;
+ 
   color: #6c757d;
   font-weight: 500;
   position: relative;
@@ -1275,6 +1274,31 @@
 }
 
 .input-separator span {
-  background: white;
+
   padding: 0 12px;
+}
+
+/* === Forcer Barlow partout === */
+/* 1) Charger la police (ou mets l'équivalent <link> dans le <head>) */
+@import url("https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800&display=swap");
+
+/* 2) Variable et base */
+:root { --font-sans: "Barlow", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans"; }
+
+html, body {
+  font-family: var(--font-sans) !important;
+}
+
+/* 3) Propager l’héritage à tous les éléments (y compris formulaires) */
+*, *::before, *::after,
+input, textarea, select, button,
+code, pre, kbd, samp {
+  font-family: inherit !important;
+}
+
+/* 4) Neutraliser les surcharges existantes dans ta feuille */
+.minimal-title,
+.pages-input,
+.score-value {
+  font-family: inherit !important;
 }
