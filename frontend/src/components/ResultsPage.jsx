@@ -1,4 +1,4 @@
-// File: src/components/ResultsSection.jsx - Version avec infobulle sur le score de sensibilité
+// File: src/components/ResultsSection.jsx
 import React, { useState } from 'react';
 import { ModernLoadingOverlay } from './LoadingSpinner';
 import KiviatChart from './results/KiviatChart';
@@ -6,6 +6,16 @@ import PageviewsChart from './results/PageviewsChart';
 import EditChart from './results/EditChart';
 import MetricsDisplay from './results/MetricsDisplay';
 import './ResultsPage.css';
+
+// Palette de couleurs pour les scores de sensibilité
+const PAGE_COLORS = [
+  '#3b82f6', // Bleu
+  '#ef4444', // Rouge
+  '#10b981', // Vert
+  '#f59e0b', // Orange
+  '#8b5cf6', // Violet
+  '#06b6d4'  // Cyan
+];
 
 // Utilitaire pour formatter les valeurs
 const formatMetricValue = (value) => {
@@ -168,7 +178,6 @@ const ModernPageSelector = ({ pages, selectedIndices, comparisonMode, onSelectio
 const SensitivityScoresHeader = ({ pages, selectedIndices }) => {
   const selectedPages = selectedIndices.map(index => pages[index]);
 
-  // Fonction pour obtenir le texte d'explication du score
   const getSensitivityExplanation = (score) => {
     const numScore = parseFloat(score);
     if (numScore >= 80) {
@@ -187,190 +196,78 @@ const SensitivityScoresHeader = ({ pages, selectedIndices }) => {
   return (
     <div className="sensitivity-scores-header">
       <div className="sensitivity-scores-grid">
-        {selectedPages.map((page, index) => (
-          <Tooltip
-            key={index}
-            content={
-              <div>
-                <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
-                  Score de sensibilité : {formatMetricValue(page.scores?.sensitivity)}%
+        {selectedPages.map((page, i) => {
+          const pageIndex = selectedIndices[i];
+          const bg = PAGE_COLORS[pageIndex % PAGE_COLORS.length];
+
+          return (
+            <Tooltip
+              key={pageIndex}
+              content={
+                <div>
+                  <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
+                    Score de sensibilité : {formatMetricValue(page.scores?.sensitivity)}%
+                  </div>
+                  <div style={{ marginBottom: '8px' }}>
+                    {getSensitivityExplanation(page.scores?.sensitivity)}
+                  </div>
+                  <div style={{ fontSize: '12px', opacity: '0.8' }}>
+                    Basé sur l'analyse de l'activité éditoriale, des vues et des métriques de qualité.
+                  </div>
                 </div>
-                <div style={{ marginBottom: '8px' }}>
-                  {getSensitivityExplanation(page.scores?.sensitivity)}
+              }
+              position="bottom"
+            >
+              <div
+                className="sensitivity-score-card"
+                style={{
+                  backgroundColor: bg,
+                  color: 'white',
+                  boxShadow: '0 6px 18px rgba(0,0,0,0.18)'
+                }}
+              >
+                <div className="sensitivity-score-label">
+                  {page.title?.length > 15 
+                    ? `${page.title.substring(0, 15)}...` 
+                    : page.title}
                 </div>
-                <div style={{ fontSize: '12px', opacity: '0.8' }}>
-                  Basé sur l'analyse de l'activité éditoriale, des vues et des métriques de qualité.
+                <div className="sensitivity-score-number">
+                  {formatMetricValue(page.scores?.sensitivity)}%
                 </div>
               </div>
-            }
-            position="bottom"
-          >
-            <div className="sensitivity-score-card">
-              <div className="sensitivity-score-label">
-                {page.title?.length > 15 
-                  ? `${page.title.substring(0, 15)}...` 
-                  : page.title}
-              </div>
-              <div className="sensitivity-score-number">
-                {formatMetricValue(page.scores?.sensitivity)}%
-              </div>
-              
-              
-            </div>
-          </Tooltip>
-        ))}
+            </Tooltip>
+          );
+        })}
       </div>
     </div>
   );
 };
 
-// ═══════════════════════════════════════════════════════════════════════
-// 🆕 NOUVELLES VUES DESIGN AVEC PREVIEW FLOUTÉ
-// ═══════════════════════════════════════════════════════════════════════
-
-// Vue d'état initial avec preview des résultats flouté
-const IdleView = () => (
-  <>
-    <div className="results-container">
-      <div className="results-preview-background"></div>
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-        <img 
-          src="Barchar.svg" 
-          alt="Bar chart preview" 
-          style={{ maxWidth: '480px', width: '100%', opacity: 0.7, borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }} 
-        />
-      </div>
-    </div>
-    <div className="results-overlay">
-      <div className="overlay-content">
-        
-        <h3>Your results will appear here</h3>
-        <div className="preview-features">
-          <div className="feature-item">
-            
-            <span>Sensitivity Profiles</span>
-          </div>
-          <div className="feature-item">
-            
-            <span>Interactive Charts</span>
-          </div>
-          <div className="feature-item">
-            
-            <span>Detailed Metrics</span>
-          </div>
-          <div className="feature-item">
-            
-            <span>Comparison Mode</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </>
-);
-
-// Vue de chargement avec preview partiellement visible
+// Vue de chargement avec preview partiellement visible et espacement footer
 const LoadingView = ({ analysisData, progress = 0 }) => {
-  // Déterminer l'étape actuelle basée sur le progrès
   const getCurrentStep = (progress) => {
     if (progress < 20) return "Collecting Wikipedia data...";
     if (progress < 50) return "Processing metrics...";
     if (progress < 80) return "Calculating scores...";
     if (progress < 95) return "Generating charts...";
-    return "Finalizing results...";
   };
 
   const currentStep = getCurrentStep(progress);
 
   return (
-    <div className="results-container">
-      {/* Même contenu de preview mais moins flouté */}
-      <div className="results-preview-background loading">
-        <div className="preview-header">
-          <div className="preview-breadcrumb">
-            <span>ANALYSIS RESULTS</span>
-            <span className="breadcrumb-separator">›</span>
-            <span>Analysis in progress...</span>
-          </div>
-          <div className="preview-actions">
-            <div className="preview-button disabled">↑ New Analysis</div>
-            <div className="preview-button disabled">Export Results</div>
-          </div>
-        </div>
-
-        <div className="preview-content">
-          <div className="preview-scores-section">
-            <h2 className="preview-section-title">Sensitivity Scores</h2>
-            <div className="preview-scores-grid">
-              <div className="preview-score-card heat loading-shimmer">
-                <div className="score-icon">🔥</div>
-                <div className="score-value">--</div>
-                <div className="score-label">Heat Score</div>
-                <div className="score-trend">Loading...</div>
-              </div>
-              <div className="preview-score-card quality loading-shimmer">
-                <div className="score-icon">⭐</div>
-                <div className="score-value">--</div>
-                <div className="score-label">Quality Score</div>
-                <div className="score-trend">Loading...</div>
-              </div>
-              <div className="preview-score-card risk loading-shimmer">
-                <div className="score-icon">⚠️</div>
-                <div className="score-value">--</div>
-                <div className="score-label">Risk Score</div>
-                <div className="score-trend">Loading...</div>
-              </div>
-              <div className="preview-score-card sensitivity loading-shimmer">
-                <div className="score-icon">📊</div>
-                <div className="score-value">--</div>
-                <div className="score-label">Sensitivity</div>
-                <div className="score-trend">Loading...</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="preview-pages-section">
-            <h2 className="preview-section-title">Page Selection</h2>
-            <div className="preview-pages-list">
-              {analysisData?.pages?.slice(0, 3).map((page, index) => (
-                <div key={index} className="preview-page-item loading-shimmer">
-                  <div className="page-title">{page}</div>
-                  <div className="page-scores">
-                    <span className="mini-score heat">--</span>
-                    <span className="mini-score quality">--</span>
-                    <span className="mini-score risk">--</span>
-                  </div>
-                  <div className="page-status">Processing...</div>
-                </div>
-              )) || (
-                <div className="preview-page-item loading-shimmer">
-                  <div className="page-title">Loading...</div>
-                  <div className="page-scores">
-                    <span className="mini-score heat">--</span>
-                    <span className="mini-score quality">--</span>
-                    <span className="mini-score risk">--</span>
-                  </div>
-                  <div className="page-status">Processing...</div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Overlay de chargement */}
+    <div className="results-container" style={{ minHeight: '100vh', paddingBottom: '200px' }}>
       <div className="results-overlay loading-overlay">
         <div className="overlay-content">
-          
-<div className="loading-logo">
-  <img 
-    src="/opsci.png" 
-    alt="Wikimetron Loading..." 
-    className="rotating-logo "
-    style={{
-      filter: 'drop-shadow(0 0 15px rgba(59, 130, 246, 0.6))'
-    }}
-  />
-</div>
+          <div className="loading-logo">
+            <img 
+              src="/opsci.png" 
+              alt="Wikimetron Loading..." 
+              className="rotating-logo "
+              style={{
+                filter: 'drop-shadow(0 0 15px rgba(59, 130, 246, 0.6))'
+              }}
+            />
+          </div>
           <h3>Analyzing {analysisData?.pages?.length || 0} Wikipedia page{(analysisData?.pages?.length || 0) !== 1 ? 's' : ''}...</h3>
           <p>{currentStep}</p>
           
@@ -381,38 +278,16 @@ const LoadingView = ({ analysisData, progress = 0 }) => {
                 style={{ width: `${progress}%` }}
               ></div>
             </div>
-            <span className="progress-text">{Math.round(progress)}%</span>
           </div>
-
-          <div className="loading-steps">
-            <div className={`step ${progress > 20 ? 'completed' : progress > 0 ? 'active' : ''}`}>
-              
-              <span>Collecting data</span>
-            </div>
-            <div className={`step ${progress > 50 ? 'completed' : progress > 20 ? 'active' : ''}`}>
-              
-              <span>Processing metrics</span>
-            </div>
-            <div className={`step ${progress > 80 ? 'completed' : progress > 50 ? 'active' : ''}`}>
-              
-              <span>Calculating scores</span>
-            </div>
-            <div className={`step ${progress > 95 ? 'completed' : progress > 80 ? 'active' : ''}`}>
-              
-              <span>Finalizing results</span>
-            </div>
-          </div>
-
-          
         </div>
       </div>
     </div>
   );
 };
 
-// Vue d'erreur améliorée
+// Vue d'erreur améliorée avec espacement footer
 const ErrorView = ({ error, onReset }) => (
-  <div className="results-container">
+  <div className="results-container" style={{ minHeight: '100vh', paddingBottom: '200px' }}>
     <div className="results-preview-background error">
       <div className="preview-content">
         <div className="preview-scores-section">
@@ -441,8 +316,8 @@ const ErrorView = ({ error, onReset }) => (
   </div>
 );
 
-// Vue des résultats (inchangée)
-const ResultsView = ({ results, analysisConfig, onNewAnalysis }) => {
+// Vue des résultats
+const ResultsView = ({ results, analysisConfig }) => {
   const [selectedPageIndices, setSelectedPageIndices] = useState([0]);
   const [comparisonMode, setComparisonMode] = useState(false);
   
@@ -455,9 +330,6 @@ const ResultsView = ({ results, analysisConfig, onNewAnalysis }) => {
           <div className="empty-icon">📋</div>
           <h3>No Results</h3>
           <p>No pages could be analyzed</p>
-          <button onClick={onNewAnalysis} className="btn btn-primary">
-            Try Again
-          </button>
         </div>
       </div>
     );
@@ -470,37 +342,8 @@ const ResultsView = ({ results, analysisConfig, onNewAnalysis }) => {
   
   const selectedPages = selectedPageIndices.map(index => pages[index]);
 
-  // Export function: download results as JSON file
-  const handleExportResults = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(results, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "wikimetron_results.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-  };
-
   return (
     <div className="results-container-new">
-      <div className="results-header">
-        <h2>Analysis Results</h2>
-        <div className="results-actions">
-          <button
-            onClick={handleExportResults}
-            className="action-button-modern primary"
-          >
-            Export Results
-          </button>
-          <button
-            onClick={onNewAnalysis}
-            className="action-button-modern secondary"
-          >
-            ↑ New Analysis
-          </button>
-        </div>
-      </div>
-
       <div className="results-main-content">
         <ModernPageSelector
           pages={pages}
@@ -543,7 +386,7 @@ const ResultsView = ({ results, analysisConfig, onNewAnalysis }) => {
             </div>
           </div>
 
-          <div className="results-card-modern metrics-card">
+          <div className="results-card-modern2 metrics-card">
             <MetricsDisplay
               pages={selectedPages}
               comparisonMode={comparisonMode}
@@ -569,23 +412,84 @@ const ResultsView = ({ results, analysisConfig, onNewAnalysis }) => {
   );
 };
 
-// Composant principal avec les nouvelles vues
+// Composant principal
 const ResultsSection = ({ analysisState, onNewAnalysis, onReset }) => {
   const { status, data, results, error, progress } = analysisState;
 
+  if (status === 'idle') {
+    return null;
+  }
+
+  const handleExportResults = () => {
+    if (results) {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(results, null, 2));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", "wikimetron_results.json");
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+    }
+  };
+
   return (
-    <div className={`results-section-container ${status}`}>
-      {status === 'idle' && <IdleView />}
-      {status === 'loading' && <LoadingView analysisData={data} progress={progress} />}
-      {status === 'error' && <ErrorView error={error} onReset={onReset} />}
-      {status === 'completed' && results && (
-        <ResultsView 
-          results={results} 
-          analysisConfig={data}
-          onNewAnalysis={onNewAnalysis}
-        />
-      )}
-    </div>
+    <>
+      <header className="wikimetron-header minimal-header">
+        <div className="minimal-container">
+          <div className="header-content" style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            width: '100%',
+            position: 'relative'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <a href="https://disinfo-prompt.eu/" target="_blank" rel="noopener noreferrer" className="header-logo-link">
+                <img src="/prompt.png" alt="Logo 1" className="header-logo" />
+              </a>
+              <h1 className="minimal-title">Wikipedia Sensitivity Meter</h1>
+            </div>
+            
+            {status === 'completed' && results && (
+              <div style={{ 
+                position: 'absolute',
+                right: '0',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                display: 'flex',
+                gap: '12px',
+                alignItems: 'center',
+                marginRight: '10px'
+              }}>
+                <button
+                  onClick={handleExportResults}
+                  className="action-button-modern primary"
+                >
+                  Export Results
+                </button>
+                <button
+                  onClick={onNewAnalysis}
+                  className="action-button-modern secondary"
+                >
+                  ↑ New Analysis
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+      
+      <div className={`results-section-container ${status}`}>
+        {status === 'loading' && <LoadingView analysisData={data} progress={progress} />}
+        {status === 'error' && <ErrorView error={error} onReset={onReset} />}
+        {status === 'completed' && results && (
+          <ResultsView 
+            results={results} 
+            analysisConfig={data}
+          />
+        )}
+      </div>
+    </>
   );
 };
 

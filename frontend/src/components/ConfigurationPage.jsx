@@ -2,7 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { LoadingSpinner } from './LoadingSpinner';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://37.59.112.214:8200';
+const API_BASE =
+  process.env.NODE_ENV === "development"
+    ? process.env.REACT_APP_API_URL || "http://localhost:8200"
+    : "";
 
 const LANGUAGE_OPTIONS = [
   { value: 'fr', label: '🇫🇷 Français' },
@@ -16,7 +19,7 @@ const QUICK_DATE_RANGES = [
   { label: 'Last 3 months', days: 90 },
   { label: 'Last 6 months', days: 180 },
   { label: 'This year', months: 'year' },
-  { label: 'Last year', months: 'lastYear' }
+  { label: 'Last 12 months', months: 'last 12 months' }
 ];
 
 // Fonction pour calculer les dates
@@ -27,10 +30,10 @@ const calculateDateRange = (option) => {
 
   if (option.months === 'year') {
     startDate = new Date(today.getFullYear(), 0, 1).toISOString().split('T')[0];
-  } else if (option.months === 'lastYear') {
-    startDate = new Date(today.getFullYear() - 1, 0, 1).toISOString().split('T')[0];
-    const lastYearEnd = new Date(today.getFullYear() - 1, 11, 31).toISOString().split('T')[0];
-    return { startDate, endDate: lastYearEnd };
+  } else if (option.months === 'last 12 months') {
+    const start = new Date(today);
+    start.setFullYear(today.getFullYear() - 1);
+    startDate = start.toISOString().split('T')[0];
   } else if (option.days) {
     const start = new Date(today);
     start.setDate(start.getDate() - option.days);
@@ -99,7 +102,7 @@ const PagesInput = ({ urlValue, pageNameValue, selectedLanguage, onUrlChange, on
             type="text"
             value={urlValue || ''}
             onChange={(e) => onUrlChange(e.target.value)}
-            placeholder="https://en.wikipedia.org/wiki/the_page_title"
+            placeholder="  https://en.wikipedia.org/wiki/the_page_title"
             className="form-input page-url-input"
             style={{ backgroundColor: '#f5f5f5', flex: 1 }}
           />
@@ -115,30 +118,34 @@ const PagesInput = ({ urlValue, pageNameValue, selectedLanguage, onUrlChange, on
       </div>
       
       <div className="page-name-group">
-    <span className="input-label">Page name:</span>
-    <input
-        type="text"
-        value={pageNameValue || ''}
-        onChange={(e) => onPageNameChange(e.target.value)}
-        placeholder="Type the title of a page"
-        className="form-input page-name-input"
-        style={{ backgroundColor: '#f5f5f5' }}
-    />
-    <span className="and-language">Language:</span>
-    <select
-        value={selectedLanguage || ''}
-        onChange={(e) => onLanguageChange(e.target.value)}
-        className="form-select language-select"
-    >
-        <option value="">Choose</option>
-        {LANGUAGE_OPTIONS.map(option => (
-            <option key={option.value} value={option.value}>
-                {option.label}
-            </option>
-        ))}
-    </select>
+    <div className="page-name-section">
+        <span className="input-label">Page name:</span>
+        <input
+            type="text"
+            value={pageNameValue || ''}
+            onChange={(e) => onPageNameChange(e.target.value)}
+            placeholder="Type the title of a page"
+            className="form-input page-name-input"
+            style={{ backgroundColor: '#f5f5f5' }}
+        />
+    </div>
+    <div className="language-section">
+        <span className="and-language">Language:</span>
+        <select
+            value={selectedLanguage || ''}
+            onChange={(e) => onLanguageChange(e.target.value)}
+            className="form-select language-select"
+            style={{ backgroundColor: '#f5f5f5' }}
+        >
+            <option value="">Choose</option>
+            {LANGUAGE_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>
+                    {option.label}
+                </option>
+            ))}
+        </select>
+    </div>
 </div>
-
       
       {/* Pages supplémentaires */}
       {additionalPages && additionalPages.length > 0 && additionalPages.map((page, index) => {
@@ -163,8 +170,9 @@ const PagesInput = ({ urlValue, pageNameValue, selectedLanguage, onUrlChange, on
                   };
                   onAdditionalPagesChange(newPages);
                 }}
-                placeholder="https://en.wikipedia.org/wiki/..."
+                placeholder="  https://en.wikipedia.org/wiki/the_page_title"
                 className="form-input page-url-input"
+                style={{ display: 'flex', alignItems: 'center', width: '100%' }}
               />
               {additionalDetectedLang && (
                 <span className="detected-language-badge">
@@ -207,6 +215,7 @@ const PagesInput = ({ urlValue, pageNameValue, selectedLanguage, onUrlChange, on
                   onAdditionalPagesChange(newPages);
                 }}
                 className="form-select language-select"
+                style={{ backgroundColor: '#ffffffff' }}
               >
                 <option value="">Choose</option>
                 {LANGUAGE_OPTIONS.map(option => (
@@ -248,16 +257,18 @@ const PagesInput = ({ urlValue, pageNameValue, selectedLanguage, onUrlChange, on
         </button>
       </div>
       
-      {/* Informations en bas */}
       <div className="form-bottom-section">
-        <div className="form-help">
-          <span>Enter Wikipedia URLs for automatic language detection, or page titles with manual language selection. Maximum 5 pages per analysis.</span>
-        </div>
-        <div className="page-counter-badge">
-          <span className="page-count">{totalPages}</span>
-          <span className="page-label">page{totalPages !== 1 ? 's' : ''}</span>
-        </div>
-      </div>
+  <div className="form-help">
+    <span>Enter Wikipedia URLs for automatic language detection, or page titles with manual language selection. Maximum 5 pages per analysis.</span>
+  </div>
+  <div className="page-counter-badge">
+    <span className="page-count">{totalPages}</span>
+    <span className="page-label">
+      {totalPages <= 1 ? 'page' : 'pages'}
+    </span>
+  </div>
+</div>
+
     </div>
   );
 };
@@ -392,23 +403,17 @@ const SubmitButton = ({ onClick, disabled, loading, totalPages }) => (
     <button 
       onClick={onClick} 
       disabled={disabled} 
-      className="btn btn-primary btn-large submit-btn analyze-btn"
+      className={`btn btn-primary btn-large submit-btn analyze-btn${loading ? ' hover' : ''}`}
       type="button"
     >
       {loading ? (
-        <>
+        <span style={{ margin: '0 auto', alignItems: 'center' }}>
           <LoadingSpinner />
-          Starting...
-        </>
+        </span>
       ) : (
         'ANALYZE'
       )}
     </button>
-    {totalPages > 0 && !loading && (
-      <p className="submit-help">
-        This will analyze {totalPages} Wikipedia page{totalPages > 1 ? 's' : ''} and may take a few minutes.
-      </p>
-    )}
   </div>
 );
 

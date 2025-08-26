@@ -169,7 +169,7 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
         <div className="metric-name-horizontal">
           <Tooltip text={METRIC_TOOLTIPS[metricKey] || 'Information sur cette métrique'}>
             <span style={{ 
-              borderBottom: '1px dotted #9ca3af',
+              
               paddingBottom: '1px'
             }}>
               {metricKey}
@@ -214,7 +214,7 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
               {categoryData.title}
             </h5>
           </Tooltip>
-          <p className="metric-category-description-horizontal">{categoryData.description}</p>
+          
 {/* Score principal ou comparaison des scores */}
 <div className="category-scores-horizontal">
   {pages.length > 1 ? (
@@ -228,13 +228,16 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
       }}
     >
       {mainScore.map((score, index) => (
-        <React.Fragment key={index}>
-          <span style={{ color: PAGE_COLORS[index % PAGE_COLORS.length] }}>
-            {renderMetricValue(score)}%
-          </span>
-          {index < mainScore.length - 1 && ' VS '}
-        </React.Fragment>
-      ))}
+  <React.Fragment key={index}>
+    <span style={{ color: PAGE_COLORS[index % PAGE_COLORS.length] }}>
+      {renderMetricValue(score)}%
+    </span>
+    {index < mainScore.length - 1 && (
+      <span style={{ fontWeight: 300, opacity: 0.8 }}> VS </span>
+    )}
+  </React.Fragment>
+))}
+
     </div>
   ) : (
     <div className="category-single-score">

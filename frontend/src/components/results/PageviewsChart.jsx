@@ -154,6 +154,22 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
     }
   };
 
+  // 🆕 FONCTION POUR OBTENIR LA COULEUR D'UNE PAGE SELON SON INDEX ORIGINAL
+  const getPageColor = (pageName) => {
+    // Trouver l'index de cette page dans la liste originale `pages`
+    const originalIndex = pages?.findIndex(page => (page.title || page) === pageName) ?? 0;
+    
+    // Si c'est une comparaison (plusieurs pages disponibles) et qu'une seule est sélectionnée
+    const isComparison = pages && pages.length > 1;
+    const singlePageSelected = selectedPages.length === 1;
+    
+    if (isComparison && singlePageSelected) {
+      return '#000000'; // Noir pour une seule page dans une comparaison
+    }
+    
+    return colors[originalIndex % colors.length]; // Couleur basée sur l'index original
+  };
+
   // Formatter les nombres
   const formatNumber = (value) => {
     if (value >= 1000000) {
@@ -191,7 +207,7 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
           <div className="pages-selector-chips">
             {pages.map((page, index) => {
               const isSelected = selectedPages.some(p => (p.title || p) === (page.title || page));
-              const color = colors[index % colors.length];
+              const color = colors[index % colors.length]; // 🆕 Couleur basée sur l'index original
               
               return (
                 <button
@@ -210,7 +226,7 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
                       : (page.title || page)
                     }
                   </span>
-                  {isSelected && <span className="chip-check">✓</span>}
+                  
                 </button>
               );
             })}
@@ -238,14 +254,16 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
               />
               <Tooltip content={<CustomTooltip />} />
               
-              {selectedPages.map((page, index) => {
+              {selectedPages.map((page) => {
                 const pageName = page.title || page;
+                const lineColor = getPageColor(pageName); // 🆕 Couleur basée sur l'index original
+                
                 return (
                   <Line
                     key={pageName}
                     type="monotone"
                     dataKey={pageName}
-                    stroke={colors[index % colors.length]}
+                    stroke={lineColor} // 🆕 Couleur fixe basée sur la position originale
                     strokeWidth={2}
                     dot={{ r: 2 }}
                     activeDot={{ r: 4 }}
