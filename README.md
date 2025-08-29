@@ -1,6 +1,3 @@
-# Wikimetron 🛡️
+- **Wikipedia Sensitivity Meter 🛡️** - Plateforme d'analyse intelligente des contenus Wikipedia qui calcule des scores de sensibilité, de qualité et de risque. Architecture : Backend à deux niveaux (métriques + pipeline utilisant l'API Wikimedia), Frontend React. [Documentation des métriques](https://docs.google.com/spreadsheets/d/1NRJf8x0Em-Wmmxi0iRTGNz3DVLYShJhe5kNXUUxRCHQ/edit?gid=912672517#gid=912672517) - ✅ Projet finalisé
 
-**Wikipedia Content Intelligence Platform**
-
-Wikimetron est une plateforme d'analyse et de surveillance intelligente des contenus Wikipedia. Elle calcule des scores de sensibilité, qualité et risque pour les pages Wikipedia.
 
