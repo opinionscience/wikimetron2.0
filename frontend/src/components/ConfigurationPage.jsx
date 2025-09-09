@@ -1,4 +1,4 @@
-// File: src/components/ConfigurationPage.jsx - Version corrigée et simplifiée
+// File: src/components/ConfigurationPage.jsx — Multi-lang (per-page) ready
 import React, { useState, useEffect } from 'react';
 import { LoadingSpinner } from './LoadingSpinner';
 
@@ -7,11 +7,55 @@ const API_BASE =
     ? process.env.REACT_APP_API_URL || "http://localhost:8200"
     : "";
 
+/** Étends la liste au besoin ; fallback prévu si code inconnu */
 const LANGUAGE_OPTIONS = [
   { value: 'fr', label: '🇫🇷 Français' },
-  { value: 'en', label: '🇺🇸 English' },
-
+  { value: 'en', label: '🇬🇧 English' },
+  { value: 'de', label: '🇩🇪 Deutsch' },
+  { value: 'it', label: '🇮🇹 Italiano' },
+  { value: 'es', label: '🇪🇸 Español' },
+  { value: 'ca', label: '🏳️ Català' },
+  { value: 'pt', label: '🇵🇹 Português' },
+  { value: 'et', label: '🇪🇪 Eesti' },
+  { value: 'lv', label: '🇱🇻 Latviešu' },
+  { value: 'lt', label: '🇱🇹 Lietuvių' },
+  { value: 'ro', label: '🇷🇴 Română' },
+  { value: 'uk', label: '🇺🇦 Українська' },
+  { value: 'be', label: '🇧🇾 Беларуская' },
+  { value: 'ru', label: '🇷🇺 Русский' },
+  { value: 'nl', label: '🇳🇱 Nederlands' },
+  { value: 'da', label: '🇩🇰 Dansk' },
+  { value: 'sv', label: '🇸🇪 Svenska' },
+  { value: 'no', label: '🇳🇴 Norsk' },
+  { value: 'fi', label: '🇫🇮 Suomi' },
+  { value: 'is', label: '🇮🇸 Íslenska' },
+  { value: 'pl', label: '🇵🇱 Polski' },
+  { value: 'hu', label: '🇭🇺 Magyar' },
+  { value: 'cs', label: '🇨🇿 Čeština' },
+  { value: 'sk', label: '🇸🇰 Slovenčina' },
+  { value: 'bg', label: '🇧🇬 Български' },
+  { value: 'sr', label: '🇷🇸 Српски' },
+  { value: 'sh', label: '🏳️ Srpskohrvatski' },
+  { value: 'hr', label: '🇭🇷 Hrvatski' },
+  { value: 'bs', label: '🇧🇦 Bosanski' },
+  { value: 'mk', label: '🇲🇰 Македонски' },
+  { value: 'sl', label: '🇸🇮 Slovenščina' },
+  { value: 'sq', label: '🇦🇱 Shqip' },
+  { value: 'el', label: '🇬🇷 Ελληνικά' },
+  { value: 'tr', label: '🇹🇷 Türkçe' },
+  { value: 'ka', label: '🇬🇪 ქართული' },
+  { value: 'hy', label: '🇦🇲 Հայերեն' },
+  { value: 'he', label: '🇮🇱 עברית' },
+  { value: 'ar', label: '🇸🇦 العربية' },
+  { value: 'arz', label: '🇪🇬 مصرى' },
+  { value: 'fa', label: '🇮🇷 فارسی' },
+  { value: 'hi', label: '🇮🇳 हिन्दी' },
+  { value: 'id', label: '🇮🇩 Bahasa Indonesia' },
+  { value: 'ceb', label: '🇵🇭 Cebuano' },
+  { value: 'zh', label: '🇨🇳 中文' },
+  { value: 'ja', label: '🇯🇵 日本語' },
 ];
+
 
 const QUICK_DATE_RANGES = [
   { label: 'Last week', days: 7 },
@@ -22,7 +66,9 @@ const QUICK_DATE_RANGES = [
   { label: 'Last 12 months', months: 'last 12 months' }
 ];
 
-// Fonction pour calculer les dates
+// ─────────────────────────────────────────────────────────────────────
+// Utils
+// ─────────────────────────────────────────────────────────────────────
 const calculateDateRange = (option) => {
   const today = new Date();
   const endDate = today.toISOString().split('T')[0];
@@ -43,7 +89,6 @@ const calculateDateRange = (option) => {
   return { startDate, endDate };
 };
 
-// Fonction pour extraire la langue depuis une URL Wikipedia
 const extractLanguageFromUrl = (url) => {
   try {
     if (url && typeof url === 'string' && url.startsWith('http') && url.includes('wikipedia.org')) {
@@ -56,17 +101,39 @@ const extractLanguageFromUrl = (url) => {
   return null;
 };
 
-// Détection locale rapide de langue depuis la première URL
 const detectLanguageFromInput = (urlInput) => {
   if (!urlInput || typeof urlInput !== 'string') return null;
   return extractLanguageFromUrl(urlInput.trim());
 };
 
-// 🔧 Composant d'input simplifié
-const PagesInput = ({ urlValue, pageNameValue, selectedLanguage, onUrlChange, onPageNameChange, onLanguageChange, additionalPages, onAdditionalPagesChange }) => {
+const toWikiUrl = (title, lang) => {
+  const cleaned = (title || '').trim().replace(/\s+/g, ' ');
+  const encoded = encodeURIComponent(cleaned.replace(/ /g, '_'));
+  const safeLang = (lang || 'fr').trim().toLowerCase();
+  return `https://${safeLang}.wikipedia.org/wiki/${encoded}`;
+};
+
+const langLabel = (code) => {
+  const found = LANGUAGE_OPTIONS.find(o => o.value === code);
+  if (found) return found.label.replace(/^[^\s]+\s*/, '').trim(); // retire emoji, garde libellé
+  return (code || '').toUpperCase() || '—';
+};
+
+// ─────────────────────────────────────────────────────────────────────
+// Sous-composants
+// ─────────────────────────────────────────────────────────────────────
+const PagesInput = ({
+  urlValue,
+  pageNameValue,
+  selectedLanguage,
+  onUrlChange,
+  onPageNameChange,
+  onLanguageChange,
+  additionalPages,
+  onAdditionalPagesChange
+}) => {
   const [detectedLanguage, setDetectedLanguage] = useState(null);
-  
-  // Calcul du nombre total de pages
+
   const getTotalPagesCount = () => {
     let count = 0;
     if (urlValue && urlValue.trim()) count++;
@@ -80,21 +147,19 @@ const PagesInput = ({ urlValue, pageNameValue, selectedLanguage, onUrlChange, on
     return count;
   };
 
-  // Détection de langue depuis l'URL
   useEffect(() => {
-    const detected = detectLanguageFromInput(urlValue);
-    setDetectedLanguage(detected);
+    setDetectedLanguage(detectLanguageFromInput(urlValue));
   }, [urlValue]);
-  
+
   const totalPages = getTotalPagesCount();
-  
+
   return (
     <div className="form-section">
       <div className="form-section-header">
         <h3>Pages to analyze</h3>
       </div>
-      
-      {/* Input principal pour URL */}
+
+      {/* URL principale */}
       <div className="page-input-group full-width">
         <span className="input-label">Page URL:</span>
         <div className="url-input-row" style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
@@ -108,86 +173,84 @@ const PagesInput = ({ urlValue, pageNameValue, selectedLanguage, onUrlChange, on
           />
           {detectedLanguage && (
             <span className="detected-language-badge" style={{ marginLeft: 8 }}>
-              {LANGUAGE_OPTIONS.find(opt => opt.value === detectedLanguage)?.label?.replace(/🇫🇷|🇺🇸|🇩🇪|🇪🇸|🇮🇹/, '').trim() || detectedLanguage.charAt(0).toUpperCase() + detectedLanguage.slice(1)}
+              {langLabel(detectedLanguage)}
             </span>
           )}
         </div>
       </div>
+
       <div className="input-separator">
         <span>OR</span>
       </div>
-      
+
+      {/* Titre + langue principale */}
       <div className="page-name-group">
-    <div className="page-name-section">
-        <span className="input-label">Page name:</span>
-        <input
+        <div className="page-name-section">
+          <span className="input-label">Page name:</span>
+          <input
             type="text"
             value={pageNameValue || ''}
             onChange={(e) => onPageNameChange(e.target.value)}
-            placeholder="Type the title of a page"
+            placeholder="  Type the title of a page"
             className="form-input page-name-input"
             style={{ backgroundColor: '#f5f5f5' }}
-        />
-    </div>
-    <div className="language-section">
-        <span className="and-language">Language:</span>
-        <select
+          />
+        </div>
+        <div className="language-section">
+          <span className="and-language">Language:</span>
+          <select
             value={selectedLanguage || ''}
             onChange={(e) => onLanguageChange(e.target.value)}
             className="form-select language-select"
             style={{ backgroundColor: '#f5f5f5' }}
-        >
+          >
             <option value="">Choose</option>
             {LANGUAGE_OPTIONS.map(option => (
-                <option key={option.value} value={option.value}>
-                    {option.label}
-                </option>
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
             ))}
-        </select>
-    </div>
-</div>
-      
+          </select>
+        </div>
+      </div>
+
       {/* Pages supplémentaires */}
       {additionalPages && additionalPages.length > 0 && additionalPages.map((page, index) => {
-        // Détection de langue pour cette page supplémentaire
         const additionalDetectedLang = detectLanguageFromInput(page.url || '');
-        
         return (
           <div key={index} className="additional-page-group">
-            {/* URL pour page supplémentaire */}
+            {/* URL */}
             <div className="page-input-group">
               <span className="input-label">Page URL:</span>
-              <input
-                type="text"
-                value={page.url || ''}
-                onChange={(e) => {
-                  const newPages = [...additionalPages];
-                  newPages[index] = { 
-                    ...newPages[index], 
-                    url: e.target.value,
-                    // Reset page name if URL is provided
-                    ...(e.target.value ? { pageName: '', language: '' } : {})
-                  };
-                  onAdditionalPagesChange(newPages);
-                }}
-                placeholder="  https://en.wikipedia.org/wiki/the_page_title"
-                className="form-input page-url-input"
-                style={{ display: 'flex', alignItems: 'center', width: '100%' }}
-              />
-              {additionalDetectedLang && (
-                <span className="detected-language-badge">
-                   {LANGUAGE_OPTIONS.find(opt => opt.value === additionalDetectedLang)?.label?.replace(/🇫🇷|🇺🇸|🇩🇪|🇪🇸|🇮🇹/, '').trim() || additionalDetectedLang.charAt(0).toUpperCase() + additionalDetectedLang.slice(1)}
-                </span>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                <input
+                  type="text"
+                  value={page.url || ''}
+                  onChange={(e) => {
+                    const newPages = [...additionalPages];
+                    newPages[index] = {
+                      ...newPages[index],
+                      url: e.target.value,
+                      ...(e.target.value ? { pageName: '', language: '' } : {})
+                    };
+                    onAdditionalPagesChange(newPages);
+                  }}
+                  placeholder="  https://en.wikipedia.org/wiki/the_page_title"
+                  className="form-input page-url-input"
+                />
+                {additionalDetectedLang && (
+                  <span className="detected-language-badge" style={{ marginLeft: 8 }}>
+                    {langLabel(additionalDetectedLang)}
+                  </span>
+                )}
+              </div>
             </div>
-            
-            {/* Séparateur OR pour page supplémentaire */}
+
             <div className="input-separator">
-        <span>OR</span>
-      </div>
-      
-            
-            {/* Nom de page + langue pour page supplémentaire */}
+              <span>OR</span>
+            </div>
+
+            {/* Titre + langue */}
             <div className="page-name-group">
               <span className="input-label">Page name:</span>
               <input
@@ -195,20 +258,19 @@ const PagesInput = ({ urlValue, pageNameValue, selectedLanguage, onUrlChange, on
                 value={page.pageName || ''}
                 onChange={(e) => {
                   const newPages = [...additionalPages];
-                  newPages[index] = { 
-                    ...newPages[index], 
+                  newPages[index] = {
+                    ...newPages[index],
                     pageName: e.target.value,
-                    // Reset URL if page name is provided
                     ...(e.target.value ? { url: '' } : {})
                   };
                   onAdditionalPagesChange(newPages);
                 }}
-                placeholder="Type the title of a page"
+                placeholder="  Type the title of a page"
                 className="form-input page-name-input"
               />
               <span className="and-language">Language:</span>
-              <select 
-                value={page.language || ''} 
+              <select
+                value={page.language || ''}
                 onChange={(e) => {
                   const newPages = [...additionalPages];
                   newPages[index] = { ...newPages[index], language: e.target.value };
@@ -226,7 +288,7 @@ const PagesInput = ({ urlValue, pageNameValue, selectedLanguage, onUrlChange, on
               </select>
             </div>
 
-            {/* Bouton de suppression repositionné en bas à droite */}
+            {/* Supprimer */}
             <button
               type="button"
               onClick={() => {
@@ -242,10 +304,10 @@ const PagesInput = ({ urlValue, pageNameValue, selectedLanguage, onUrlChange, on
         );
       })}
 
-      {/* Bouton pour ajouter une autre page - maintenant toujours en bas */}
+      {/* Ajouter une page */}
       <div className="add-page-section">
-        <button 
-          type="button" 
+        <button
+          type="button"
           className="add-page-btn"
           onClick={() => {
             const newPages = [...(additionalPages || []), { url: '', pageName: '', language: '' }];
@@ -256,24 +318,24 @@ const PagesInput = ({ urlValue, pageNameValue, selectedLanguage, onUrlChange, on
           Compare with another page (optional)
         </button>
       </div>
-      
-      <div className="form-bottom-section">
-  <div className="form-help">
-    <span>Enter Wikipedia URLs for automatic language detection, or page titles with manual language selection. Maximum 5 pages per analysis.</span>
-  </div>
-  <div className="page-counter-badge">
-    <span className="page-count">{totalPages}</span>
-    <span className="page-label">
-      {totalPages <= 1 ? 'page' : 'pages'}
-    </span>
-  </div>
-</div>
 
+      <div className="form-bottom-section">
+        <div className="form-help">
+          <span>
+            Enter Wikipedia URLs for automatic language detection, or page titles with manual language selection. Maximum 5 pages per analysis.
+          </span>
+        </div>
+        <div className="page-counter-badge">
+          <span className="page-count">{totalPages}</span>
+          <span className="page-label">
+            {totalPages <= 1 ? 'page' : 'pages'}
+          </span>
+        </div>
+      </div>
     </div>
   );
 };
 
-// 🔄 Sélecteur de période adapté
 const DateRangeSelector = ({ startDate, endDate, onStartChange, onEndChange }) => {
   const [selectedQuickRange, setSelectedQuickRange] = useState('');
 
@@ -293,8 +355,7 @@ const DateRangeSelector = ({ startDate, endDate, onStartChange, onEndChange }) =
       <div className="form-section-header">
         <h3>Timeframe</h3>
       </div>
-      
-      {/* Boutons de période rapide */}
+
       <div className="quick-dates">
         <div className="quick-dates-grid">
           {QUICK_DATE_RANGES.map(range => (
@@ -310,82 +371,32 @@ const DateRangeSelector = ({ startDate, endDate, onStartChange, onEndChange }) =
         </div>
       </div>
 
-      {/* Séparateur */}
       <div className="input-separator">
         <span>OR</span>
       </div>
 
-      {/* Sélection de dates personnalisées */}
-<div className="custom-dates">
-  <div className="date-inputs">
-    <span className="date-label">From:</span>
-    <input 
-      type="date" 
-      value={startDate} 
-      onChange={(e) => {
-        onStartChange(e.target.value);
-        handleCustomDate();
-      }}
-      className="form-input date-input"
-    />
-    <span className="date-label">to:</span>
-    <input 
-      type="date" 
-      value={endDate} 
-      onChange={(e) => {
-        onEndChange(e.target.value);
-        handleCustomDate();
-      }}
-      className="form-input date-input"
-    />
-  </div>
-
-      </div>
-    </div>
-  );
-};
-
-// Résumé d'analyse simplifié
-const AnalysisSummary = ({ totalPages, startDate, endDate, detectedLanguage, manualLanguage }) => {
-  if (totalPages === 0) return null;
-
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const getLanguageDisplay = () => {
-    if (detectedLanguage) {
-      return `Auto (${detectedLanguage.toUpperCase()})`;
-    }
-    if (manualLanguage) {
-      return manualLanguage.toUpperCase();
-    }
-    return 'Not specified';
-  };
-
-  return (
-    <div className="analysis-preview">
-      <h3>🚀 Ready to analyze</h3>
-      <div className="preview-stats">
-        <div className="stat">
-          <span className="stat-number">{totalPages}</span>
-          <span className="stat-label">page{totalPages > 1 ? 's' : ''}</span>
-        </div>
-        <div className="stat">
-          <span className="stat-number">{getLanguageDisplay()}</span>
-          <span className="stat-label">language</span>
-        </div>
-        <div className="stat">
-          <span className="stat-number">{formatDate(startDate)}</span>
-          <span className="stat-label">from</span>
-        </div>
-        <div className="stat">
-          <span className="stat-number">{formatDate(endDate)}</span>
-          <span className="stat-label">to</span>
+      <div className="custom-dates">
+        <div className="date-inputs">
+          <span className="date-label">From:</span>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => {
+              onStartChange(e.target.value);
+              handleCustomDate();
+            }}
+            className="form-input date-input"
+          />
+          <span className="date-label">to:</span>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => {
+              onEndChange(e.target.value);
+              handleCustomDate();
+            }}
+            className="form-input date-input"
+          />
         </div>
       </div>
     </div>
@@ -398,11 +409,11 @@ const ErrorAlert = ({ message }) => (
   </div>
 );
 
-const SubmitButton = ({ onClick, disabled, loading, totalPages }) => (
+const SubmitButton = ({ onClick, disabled, loading }) => (
   <div className="submit-section">
-    <button 
-      onClick={onClick} 
-      disabled={disabled} 
+    <button
+      onClick={onClick}
+      disabled={disabled}
       className={`btn btn-primary btn-large submit-btn analyze-btn${loading ? ' hover' : ''}`}
       type="button"
     >
@@ -417,15 +428,16 @@ const SubmitButton = ({ onClick, disabled, loading, totalPages }) => (
   </div>
 );
 
-// COMPOSANT PRINCIPAL SIMPLIFIÉ
-const ConfigurationPage = ({ 
-  onAnalysisStart, 
-  onAnalysisComplete, 
-  onAnalysisError, 
+// ─────────────────────────────────────────────────────────────────────
+// Composant principal
+// ─────────────────────────────────────────────────────────────────────
+const ConfigurationPage = ({
+  onAnalysisStart,
+  onAnalysisComplete,
+  onAnalysisError,
   onProgressUpdate,
-  isAnalyzing = false 
+  isAnalyzing = false
 }) => {
-  // États séparés pour chaque input
   const [urlInput, setUrlInput] = useState('');
   const [pageNameInput, setPageNameInput] = useState('');
   const [manualLanguage, setManualLanguage] = useState('');
@@ -433,130 +445,128 @@ const ConfigurationPage = ({
   const [startDate, setStartDate] = useState('2024-01-01');
   const [endDate, setEndDate] = useState('2024-12-31');
   const [error, setError] = useState(null);
+  const [taskLanguages, setTaskLanguages] = useState(null); // languages dict renvoyé par /api/analyze
 
-  // Détection de langue depuis l'URL
   const detectedLanguage = detectLanguageFromInput(urlInput);
 
-  // Calcul du nombre total de pages valides
+  // Construit la liste des pages visibles pour compteur
   const getTotalPages = () => {
     const pages = [];
-    
-    // URL principale
-    if (urlInput && urlInput.trim()) {
-      pages.push(urlInput.trim());
-    }
-    
-    // Page nommée (seulement si langue sélectionnée)
-    if (pageNameInput && pageNameInput.trim() && manualLanguage) {
-      pages.push(pageNameInput.trim());
-    }
-    
-    // Pages supplémentaires
+    if (urlInput && urlInput.trim()) pages.push(urlInput.trim());
+    if (pageNameInput && pageNameInput.trim() && manualLanguage) pages.push(pageNameInput.trim());
     if (additionalPages) {
-      additionalPages.forEach(page => {
-        if (page.url && page.url.trim()) {
-          pages.push(page.url.trim());
-        } else if (page.pageName && page.pageName.trim() && page.language) {
-          pages.push(page.pageName.trim());
+      additionalPages.forEach(p => {
+        if (p.url && p.url.trim()) pages.push(p.url.trim());
+        else if (p.pageName && p.pageName.trim() && p.language) pages.push(p.pageName.trim());
+      });
+    }
+    return pages;
+  };
+
+  // Construit la liste **pour l'API** : convertit (titre+langue) → URL wiki
+  const buildPagesForApi = () => {
+    const dest = [];
+
+    if (urlInput && urlInput.trim()) {
+      dest.push(urlInput.trim());
+    }
+    if (pageNameInput && pageNameInput.trim() && manualLanguage) {
+      dest.push(toWikiUrl(pageNameInput.trim(), manualLanguage));
+    }
+    if (additionalPages) {
+      additionalPages.forEach(p => {
+        if (p.url && p.url.trim()) {
+          dest.push(p.url.trim());
+        } else if (p.pageName && p.pageName.trim() && p.language) {
+          dest.push(toWikiUrl(p.pageName.trim(), p.language));
         }
       });
     }
-    
-    return pages;
+    return dest;
   };
 
   const allPages = getTotalPages();
   const totalPages = allPages.length;
 
   const handleSubmit = async () => {
-    console.log('handleSubmit called', { totalPages, isAnalyzing });
-    
     if (totalPages === 0) {
       setError('Please enter at least one Wikipedia page');
       return;
     }
-    
     if (totalPages > 5) {
       setError('Maximum 5 pages per analysis');
       return;
     }
 
-    // Vérifier qu'on a au moins une source avec langue
     const hasUrlWithDetection = urlInput && urlInput.trim() && detectedLanguage;
     const hasPageWithLanguage = pageNameInput && pageNameInput.trim() && manualLanguage;
-    
+
     if (!hasUrlWithDetection && !hasPageWithLanguage) {
       setError('Please provide either a Wikipedia URL (for auto-detection) or a page name with language selection');
       return;
     }
-    
+
     setError(null);
-    
-    // Créer les données d'analyse
-    const analysisData = {
+    setTaskLanguages(null);
+
+    // Toujours envoyer des URLs pour préserver la langue par page
+    const pagesForApi = buildPagesForApi();
+
+    const analysisDataLocal = {
       taskId: 'pending',
-      pages: allPages,
-      detectedLanguage: detectedLanguage,
-      manualLanguage: manualLanguage,
+      pages: pagesForApi,
       startDate,
       endDate,
       estimatedTime: Math.ceil(totalPages * 30)
     };
-    
-    // Démarrer l'analyse
-    onAnalysisStart(analysisData);
-    
-    // Simulation de progression
+    onAnalysisStart(analysisDataLocal);
+
     const progressInterval = setInterval(() => {
       onProgressUpdate(prev => Math.min(prev + Math.random() * 10, 90));
     }, 500);
-    
+
     try {
-      // Préparer la requête API
       const requestData = {
-        pages: allPages,
+        pages: pagesForApi,
         start_date: startDate,
         end_date: endDate
+        // NOTE: on NE PASSE PAS default_language car chaque titre a été converti en URL (avec sa langue)
       };
-      
-      // Ajouter la langue seulement si on force manuellement
-      // Sinon laisser l'API détecter automatiquement
-      if (manualLanguage && !detectedLanguage) {
-        requestData.language = manualLanguage;
-      }
-      
-      console.log('Sending request:', requestData);
-      
+
       const response = await fetch(`${API_BASE}/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestData)
       });
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       }
-      
+
       const data = await response.json();
-      console.log('API response:', data);
-      
-      // Mettre à jour avec le vrai taskId
-      const updatedAnalysisData = {
-        ...analysisData,
+
+      // languages = dict {"fr": n, "en": m}
+      if (data?.languages) {
+        setTaskLanguages(data.languages);
+      }
+
+      const updatedLocal = {
+        ...analysisDataLocal,
         taskId: data.task_id,
-        estimatedTime: data.estimated_time || analysisData.estimatedTime,
-        detectedLanguage: data.detected_language || detectedLanguage
+        estimatedTime: data.estimated_time || analysisDataLocal.estimatedTime
       };
-      
-      onAnalysisStart(updatedAnalysisData);
-      
-      // Polling des résultats
+      onAnalysisStart(updatedLocal);
+
       const pollResults = async () => {
         try {
-          const response = await fetch(`${API_BASE}/api/tasks/${data.task_id}`);
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          const taskData = await response.json();
+          const r = await fetch(`${API_BASE}/api/tasks/${data.task_id}`);
+          if (!r.ok) throw new Error(`HTTP error! status: ${r.status}`);
+          const taskData = await r.json();
+
+          if (taskData?.languages && !taskLanguages) {
+            setTaskLanguages(taskData.languages);
+          }
 
           if (taskData.status === 'completed' && taskData.results) {
             clearInterval(progressInterval);
@@ -577,7 +587,7 @@ const ConfigurationPage = ({
       };
 
       pollResults();
-      
+
     } catch (err) {
       console.error('Error starting analysis:', err);
       clearInterval(progressInterval);
@@ -590,7 +600,7 @@ const ConfigurationPage = ({
   return (
     <div className="config-container">
       <div className="config-form">
-        <PagesInput 
+        <PagesInput
           urlValue={urlInput}
           pageNameValue={pageNameInput}
           selectedLanguage={manualLanguage}
@@ -600,29 +610,20 @@ const ConfigurationPage = ({
           additionalPages={additionalPages}
           onAdditionalPagesChange={setAdditionalPages}
         />
-        
-        <DateRangeSelector 
+
+        <DateRangeSelector
           startDate={startDate}
           endDate={endDate}
           onStartChange={setStartDate}
           onEndChange={setEndDate}
         />
-        
-        <AnalysisSummary 
-          totalPages={totalPages}
-          startDate={startDate} 
-          endDate={endDate} 
-          detectedLanguage={detectedLanguage}
-          manualLanguage={manualLanguage}
-        />
-        
+
         {error && <ErrorAlert message={error} />}
-        
-        <SubmitButton 
-          onClick={handleSubmit} 
-          disabled={isSubmitDisabled} 
+
+        <SubmitButton
+          onClick={handleSubmit}
+          disabled={isSubmitDisabled}
           loading={isAnalyzing}
-          totalPages={totalPages}
         />
       </div>
     </div>

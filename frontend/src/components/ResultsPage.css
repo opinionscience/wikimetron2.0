@@ -28,7 +28,7 @@
    LAYOUT PRINCIPAL
    ============================================ */
 .results-container-new {
-  background: linear-gradient(135deg, var(--bg-primary) 0%, #f5fcf1 100%);
+  background: linear-gradient(#e2e8f0); 
   min-height: 100vh;
   padding: 1.5rem;
 }
@@ -589,28 +589,7 @@
   
 }
 
-.action-button-modern {
-  padding: 1rem 2rem;
-  font-size: 1rem;
-  font-weight: 600;
-  border-radius: var(--radius-md);
-  border: 2px solid var(--border-light);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(10px);
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
 
-
-.action-button-modern.primary {
-  background: linear-gradient(135deg, var(--accent-green) 0%, #b8f59a 100%);
-  border-color: var(--border-strong);
-}
 
 /* ============================================
    RESPONSIVE DESIGN

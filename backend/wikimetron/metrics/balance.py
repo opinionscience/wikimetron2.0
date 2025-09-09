@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Métrique de déséquilibre ajouts/suppressions Wikipédia
-(Pipeline-ready, multilingue)
+(Pipeline-ready, multilingue) - Version modifiée avec date de fin uniquement
 """
 
 import requests
@@ -11,27 +11,26 @@ from datetime import datetime
 from typing import Optional, List, Dict
 
 def get_api_url(lang="fr"):
-    """Construit l’URL de l’API MediaWiki pour une langue donnée."""
+    """Construit l'URL de l'API MediaWiki pour une langue donnée."""
     return f"https://{lang}.wikipedia.org/w/api.php"
 
-def fetch_revisions_with_size(title: str,
-                              start: Optional[datetime] = None,
-                              end: Optional[datetime] = None,
-                              lang: str = "fr") -> List[Dict]:
+def fetch_last_revisions_with_size(title: str,
+                                  end: Optional[datetime] = None,
+                                  limit: int = 10,
+                                  lang: str = "fr") -> List[Dict]:
     """
-    Récupère toutes les révisions d'une page Wikipédia (multilingue).
+    Récupère les dernières révisions d'une page Wikipédia avant une date donnée.
     Args:
         title (str): Titre de la page.
-        start (datetime, optionnel): Date de début.
         end (datetime, optionnel): Date de fin.
+        limit (int): Nombre de révisions à récupérer (défaut: 10).
         lang (str): Code langue Wikipédia (ex: 'fr', 'en').
     Returns:
         List[Dict]: Liste de révisions (dict contenant timestamp, size, etc.).
     """
     API_URL = get_api_url(lang)
     HEADERS = {"User-Agent": f"WikiBalanceSimple/1.1 ({lang}@opsci.com)"}
-    revs = []
-    start_ts = start.strftime('%Y-%m-%dT%H:%M:%SZ') if start else None
+    
     end_ts = end.strftime('%Y-%m-%dT%H:%M:%SZ') if end else None
 
     params = {
@@ -39,35 +38,26 @@ def fetch_revisions_with_size(title: str,
         "titles": title,
         "prop": "revisions",
         "rvprop": "ids|timestamp|size|user|comment",
-        "rvlimit": "max",
+        "rvlimit": limit,
         "format": "json",
         "formatversion": "2",
-        "rvdir": "newer"
+        "rvdir": "older"  # Du plus récent au plus ancien
     }
-    if start_ts:
-        params["rvstart"] = start_ts
     if end_ts:
-        params["rvend"] = end_ts
+        params["rvstart"] = end_ts
 
-    cont = {}
-    while True:
-        req = {**params, **cont}
-        try:
-            r = requests.get(API_URL, params=req, headers=HEADERS, timeout=30)
-            r.raise_for_status()
-            data = r.json()
-            if "error" in data:
-                break
-            pages = data.get("query", {}).get("pages", [])
-            if pages and "revisions" in pages[0]:
-                revs.extend(pages[0]["revisions"])
-            if "continue" in data:
-                cont = data["continue"]
-            else:
-                break
-        except requests.RequestException:
-            break
-    return revs
+    try:
+        r = requests.get(API_URL, params=params, headers=HEADERS, timeout=30)
+        r.raise_for_status()
+        data = r.json()
+        if "error" in data:
+            return []
+        pages = data.get("query", {}).get("pages", [])
+        if pages and "revisions" in pages[0]:
+            return pages[0]["revisions"]
+    except requests.RequestException:
+        pass
+    return []
 
 def compute_simple_metrics(revisions: List[Dict]) -> Dict:
     """Calcule les métriques basiques (ajouts/suppressions) sur la liste des révisions."""
@@ -127,43 +117,75 @@ def calculate_imbalances(metrics: Dict) -> Dict:
         'total_revisions': metrics['total_revisions']
     }
 
+def parse_date(date_str):
+    """Parse une date au format YYYY-MM-DD ou ISO."""
+    if not date_str:
+        return None
+    try:
+        # Essayer d'abord le format YYYY-MM-DD
+        return datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        try:
+            # Si ça échoue, essayer le format ISO (depuis le pipeline)
+            if 'T' in date_str:
+                # Format ISO: 2025-05-21T00:00:00Z
+                return datetime.fromisoformat(date_str.replace('Z', '+00:00')).replace(tzinfo=None)
+            else:
+                raise ValueError()
+        except ValueError:
+            raise ValueError(f"Format de date invalide. Utilisez YYYY-MM-DD (ex: 2024-01-01) ou format ISO")
+
+# Ou plus simple, adapter directement get_event_imbalance pour accepter les deux:
 def get_event_imbalance(pages: List[str],
-                        start: Optional[str] = None,
                         end: Optional[str] = None,
+                        limit: int = 10,
                         lang: str = "fr") -> pd.DataFrame:
     """
-    Calcule les métriques de déséquilibre pour une liste de pages Wikipédia, pour la langue choisie.
+    Calcule les métriques de déséquilibre pour une liste de pages Wikipédia.
     Args:
         pages (List[str]): Titres des pages Wikipédia.
-        start (str, optionnel): Date de début (YYYY-MM-DD).
-        end (str, optionnel): Date de fin (YYYY-MM-DD).
+        end (str, optionnel): Date de fin (YYYY-MM-DD ou format ISO).
+        limit (int): Nombre de révisions à récupérer (défaut: 10).
         lang (str): Code langue Wikipédia (ex: 'fr', 'en').
     Returns:
         pd.DataFrame: Table avec les scores de déséquilibre pour chaque page.
     """
     results = []
-    start_dt = datetime.strptime(start, "%Y-%m-%d") if start else None
-    end_dt = datetime.strptime(end, "%Y-%m-%d") if end else None
+    
+    # Parsing flexible de la date
+    end_dt = None
+    if end:
+        try:
+            # Essayer YYYY-MM-DD d'abord
+            end_dt = datetime.strptime(end, "%Y-%m-%d")
+        except ValueError:
+            try:
+                # Essayer le format ISO ensuite
+                if 'T' in end:
+                    end_dt = datetime.fromisoformat(end.replace('Z', '+00:00')).replace(tzinfo=None)
+                else:
+                    raise ValueError()
+            except ValueError:
+                raise ValueError(f"Format de date invalide: {end}. Utilisez YYYY-MM-DD ou format ISO")
 
     for page in pages:
-        revs = fetch_revisions_with_size(page, start_dt, end_dt, lang=lang)
+        revs = fetch_last_revisions_with_size(page, end_dt, limit, lang=lang)
         metrics = compute_simple_metrics(revs)
         imbalances = calculate_imbalances(metrics)
         res = {"page": page, **imbalances}
         results.append(res)
     return pd.DataFrame(results).set_index("page")
 
-
-def get_event_imbalance_events_only(pages, start=None, end=None, lang="fr"):
+def get_event_imbalance_events_only(pages, end=None, limit=10, lang="fr"):
     """
     Renvoie uniquement le score de déséquilibre des événements (imbalance_events)
     sous forme de pd.Series indexée par page.
     """
-    df = get_event_imbalance(pages, start, end, lang)
+    df = get_event_imbalance(pages, end, limit, lang)
     return df["imbalance_events"]
 
 # Utilisation pipeline (exemple) :
 if __name__ == "__main__":
-    # Exemple : calculer pour 2 pages
-    df = get_event_imbalance(["Emmanuel Macron"], start="2025-06-01", end="2025-07-01", lang="it")
+    # Exemple : calculer pour 1 page avec les 10 dernières révisions avant le 27 août 2025
+    df = get_event_imbalance(["Franciaország"], end="2025-08-29", limit=10, lang="hu")
     print(df)

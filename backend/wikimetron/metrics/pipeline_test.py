@@ -32,7 +32,7 @@ HEAT_W = {
 QUAL_W = {
     "Suspicious sources": 10,
     "Featured article": 10,
-    "Citation gaps": 3,
+    "Citations Gaps": 3,
     "Staleness": 2,
     "Source concentration": 2,
     "Add/delete ratio": 1,
@@ -165,7 +165,8 @@ def safe_metric_executor_multilang(
                     
                 elif metric_name == "Add/delete ratio":
     # QUALITY: (pages, end, limit, lang)
-                    result = metric_func(page_titles, *extra_args, lang) if extra_args else metric_func(page_titles, lang=lang)
+                    result = metric_func(page_titles, *extra_args, lang) if extra_args else metric_func(page_titles, lang)
+
 
 
                 elif metric_name == "Contributor add/delete ratio":
@@ -197,7 +198,7 @@ def safe_metric_executor_multilang(
                     # (pages, faux_nez_path, lang)
                     fn_path = extra_args[0] if len(extra_args) >= 1 else "faux_nez.csv"
                     result = metric_func(page_titles, fn_path, lang)
-                elif metric_name == "Citation gaps":
+                elif metric_name == "Citations Gaps":
     # (pages, lang)
                     result = metric_func(page_titles, lang)
 
@@ -292,22 +293,22 @@ def collect_metrics_parallel_multilang(
     Collecte toutes les métriques en parallèle avec support multi-langues.
     """
     try:
-        from wikimetron.metrics.pageviews import get_pageview_spikes_normalized
-        from wikimetron.metrics.edit import get_edit_spikes
-        from wikimetron.metrics.protection import get_protection_scores
-        from wikimetron.metrics.ref import get_citation_gap
-        from wikimetron.metrics.balance import get_event_imbalance_events_only
-        from wikimetron.metrics.last_edit import get_recency_score
-        from wikimetron.metrics.adq import get_adq_score
-        from wikimetron.metrics.user_balance_metric import get_mean_contributor_balance
-        from wikimetron.metrics.monopol import get_monopolization_scores
-        from wikimetron.metrics.quantity import get_avg_activity_score
-        from wikimetron.metrics.domination import get_domain_dominance
-        from wikimetron.metrics.taille_talk import discussion_score
-        from wikimetron.metrics.ano_edit import get_anon_edit_score_series
-        from wikimetron.metrics.blacklist_metric import get_blacklist_share
-        from wikimetron.metrics.revert_risk import get_revert_risk
-        from wikimetron.metrics.faux_nez import get_user_detection_score
+        from pageviews import get_pageview_spikes_normalized
+        from edit import get_edit_spikes
+        from protection import get_protection_scores
+        from ref import get_citation_gap
+        from balance import get_event_imbalance_events_only
+        from last_edit import get_recency_score
+        from adq import get_adq_score
+        from user_balance_metric import get_mean_contributor_balance
+        from monopol import get_monopolization_scores
+        from quantity import get_avg_activity_score
+        from domination import get_domain_dominance
+        from taille_talk import discussion_score
+        from ano_edit import get_anon_edit_score_series
+        from blacklist_metric import get_blacklist_share
+        from revert_risk import get_revert_risk
+        from faux_nez import get_user_detection_score
     except ImportError as e:
         logger.error(f"Erreur d'import des modules de métriques: {e}")
         return generate_test_data_multilang(page_infos)
@@ -331,7 +332,7 @@ def collect_metrics_parallel_multilang(
         ("Views spikes", get_pageview_spikes_normalized),
         ("Edits spikes", get_edit_spikes),
         ("Protection", get_protection_scores),
-        ("Citation gaps", get_citation_gap),
+        ("Citations Gaps", get_citation_gap),
         ("Add/delete ratio", get_event_imbalance_events_only),
         ("Staleness", get_recency_score),
         ("Featured article", get_adq_score),

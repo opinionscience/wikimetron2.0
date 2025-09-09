@@ -1,7 +1,7 @@
-
 """
 Calcule le score de qualité "officiel" (bannière d'évaluation) d'un article Wikipédia.
 Supporte français et anglais (d'autres langues peuvent être ajoutées facilement).
+Score par défaut de 0.5 pour les langues autres que fr/en.
 
 Usage CLI :
     python quality_score_pipe.py "Emmanuel Macron" "ChatGPT" --lang en
@@ -27,7 +27,7 @@ LEVEL_SCORES_EN = {
     "fa": 0,           # Featured Article
     "a": 0.2,
     "ga": 0.3,         # Good Article
-    "b": 0.5,
+    "b": 0.6,
     "c": 0.7,
     "start": 0.85,
     "stub": 1
@@ -37,6 +37,9 @@ TALK_PREFIXES = {
     "en": "Talk:",
     "de": "Diskussion:"
 }
+
+# Score par défaut pour les langues non supportées
+DEFAULT_SCORE_OTHER_LANGS = 0.5
 
 def get_talk_wikicode(title: str, lang="fr") -> str:
     prefix = TALK_PREFIXES.get(lang, "Talk:")
@@ -62,12 +65,12 @@ def extract_level(wikicode: str, lang="fr") -> str:
     adapté pour fr (avancement=...) et en (class=...).
     """
     if lang == "en":
-        # Ex : {{WikiProject ... |class=FA|...}}
+        # Ex : {{WikiProject ... |class=FA|...}}
         match = re.search(r"\|\s*class\s*=\s*([^\s|}]+)", wikicode, re.IGNORECASE)
         if match:
             return match.group(1).strip().lower()
     else:
-        # Ex : {{Wikiprojet ... |avancement=ADQ|...}}
+        # Ex : {{Wikiprojet ... |avancement=ADQ|...}}
         match = re.search(r"avancement\s*=\s*([^|}]+)", wikicode, re.IGNORECASE)
         if match:
             lvl = match.group(1).strip().lower()
@@ -80,9 +83,13 @@ def extract_level(wikicode: str, lang="fr") -> str:
 
 def get_score_for_article(title: str, lang="fr") -> float:
     """
-    Retourne le score officiel (ou 0.0 si non évalué) pour un article,
+    Retourne le score officiel (ou score par défaut) pour un article,
     pour la langue voulue (fr, en...).
     """
+    # Si la langue n'est ni français ni anglais, retourner le score par défaut
+    if lang not in ["fr", "en"]:
+        return DEFAULT_SCORE_OTHER_LANGS
+    
     wikicode = get_talk_wikicode(title, lang=lang)
     level = extract_level(wikicode, lang=lang)
     if lang == "en":
@@ -92,7 +99,7 @@ def get_score_for_article(title: str, lang="fr") -> float:
 
 def get_official_quality_score(pages, lang="fr"):
     """
-    Fonction prête pour le pipeline :
+    Fonction prête pour le pipeline :
     Retourne une Series indexée par titre, valeur entre 0 (excellence) et 1 (ébauche).
     """
     scores = {}
@@ -100,11 +107,17 @@ def get_official_quality_score(pages, lang="fr"):
         try:
             scores[title] = get_score_for_article(title, lang=lang)
         except Exception:
-            scores[title] = 0.0
+            # En cas d'erreur, utiliser le score par défaut pour les autres langues
+            # ou 0.0 pour fr/en
+            if lang not in ["fr", "en"]:
+                scores[title] = DEFAULT_SCORE_OTHER_LANGS
+            else:
+                scores[title] = 0.0
     return pd.Series(scores, name="official_quality_score")
+
 def get_adq_score(pages, lang="fr"):
     """
-    Version pipeline : retourne une Series indexée par page,
+    Version pipeline : retourne une Series indexée par page,
     valeur entre 0 (ADQ) et 1 (ébauche ou non évalué).
     """
     
@@ -113,8 +126,14 @@ def get_adq_score(pages, lang="fr"):
         try:
             scores[title] = get_score_for_article(title, lang=lang)
         except Exception:
-            scores[title] = 0.0
+            # En cas d'erreur, utiliser le score par défaut pour les autres langues
+            # ou 0.0 pour fr/en
+            if lang not in ["fr", "en"]:
+                scores[title] = DEFAULT_SCORE_OTHER_LANGS
+            else:
+                scores[title] = 0.0
     return pd.Series(scores, name="adq_score")
+
 # ========== CLI de test rapide ==========
 
 if __name__ == "__main__":
@@ -123,7 +142,10 @@ if __name__ == "__main__":
     parser.add_argument("--lang", default="fr", help="Langue Wikipedia (fr, en...)")
     args = parser.parse_args()
 
-    print(f"Test du score de qualité officiel sur {len(args.pages)} article(s) [lang={args.lang}]\n")
+    print(f"Test du score de qualité officiel sur {len(args.pages)} article(s) [lang={args.lang}]")
+    if args.lang not in ["fr", "en"]:
+        print(f"⚠️  Langue '{args.lang}' non supportée - score par défaut: {DEFAULT_SCORE_OTHER_LANGS}")
+    print()
 
     t0 = pd.Timestamp.now()
     res = get_official_quality_score(args.pages, lang=args.lang)

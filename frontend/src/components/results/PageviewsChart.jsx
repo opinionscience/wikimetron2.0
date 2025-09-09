@@ -15,7 +15,8 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
   const [pageviewsData, setPageviewsData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [selectedPages, setSelectedPages] = useState(pages?.slice(0, 5) || []);
+  const [selectedPages, setSelectedPages] = useState([]);
+  const [pageLabelsMap, setPageLabelsMap] = useState(new Map()); // Map: original_input -> user_label
 
   // Couleurs pour les différentes pages
   const colors = [
@@ -27,69 +28,60 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
     '#06b6d4'  // Cyan
   ];
 
-  // 🔍 FONCTION DE DEBUG POUR COMPRENDRE COMMENT LA LANGUE ARRIVE
-  const debugAnalysisConfig = () => {
-    console.log('🔍 === DEBUG PAGEVIEWS CHART ===');
-    console.log('📋 analysisConfig complet:', analysisConfig);
-    console.log('🌐 analysisConfig.language:', analysisConfig?.language);
-    console.log('🎯 analysisConfig.detectedLanguage:', analysisConfig?.detectedLanguage);
-    console.log('📄 pages reçues:', pages);
-    console.log('📑 selectedPages:', selectedPages);
-    console.log('================================');
-  };
-
-  // 🔧 LOGIQUE AMÉLIORÉE POUR DÉTERMINER LA LANGUE
-  const determineLanguage = () => {
-    debugAnalysisConfig();
-    
-    // Essayer plusieurs sources de langue dans l'ordre de priorité
-    let language = null;
-    let source = 'fallback';
-    
-    // 1. Langue explicitement détectée par l'API
-    if (analysisConfig?.detectedLanguage) {
-      language = analysisConfig.detectedLanguage;
-      source = 'API detected';
-    }
-    // 2. Langue configurée manuellement
-    else if (analysisConfig?.language) {
-      language = analysisConfig.language;
-      source = 'manual config';
-    }
-    // 3. Essayer de détecter depuis les pages elles-mêmes
-    else if (pages && pages.length > 0) {
-      // Chercher une URL Wikipedia dans les pages
-      for (const page of pages) {
-        const pageTitle = page.title || page;
-        if (typeof pageTitle === 'string' && pageTitle.includes('wikipedia.org')) {
-          try {
-            const match = pageTitle.match(/https?:\/\/([a-z]{2})\.wikipedia\.org/);
-            if (match) {
-              language = match[1];
-              source = 'URL detection';
-              break;
-            }
-          } catch (e) {
-            console.warn('Erreur détection langue depuis URL:', e);
-          }
+  // Créer un label d'affichage user-friendly
+  const createUserLabel = (page, index) => {
+    if (typeof page === 'string' && page.startsWith('http') && page.includes('wikipedia.org')) {
+      try {
+        const url = new URL(page);
+        const hostname = url.hostname;
+        const lang = hostname.split('.')[0];
+        
+        if (url.pathname.includes('/wiki/')) {
+          const rawTitle = url.pathname.split('/wiki/')[1];
+          const cleanTitle = decodeURIComponent(rawTitle.replace(/_/g, ' '));
+          return { label: cleanTitle, lang: lang, original: page };
         }
+      } catch (e) {
+        console.warn('Erreur parsing URL:', e);
       }
     }
     
-    // 4. Fallback par défaut
-    if (!language) {
-      language = 'fr';
-      source = 'default fallback';
-    }
-    
-    console.log(`🎯 Langue déterminée: "${language}" (source: ${source})`);
-    return language;
+    // Fallback pour les pages non-URL
+    return { label: String(page), lang: null, original: page };
   };
 
-  // Récupérer les données pageviews
+  // Initialiser le mapping des labels et pages sélectionnées
+  useEffect(() => {
+    if (pages && pages.length > 0) {
+      const labelMap = new Map();
+      
+      pages.forEach((page) => {
+        const pageInfo = createUserLabel(page);
+        labelMap.set(page, pageInfo.label);
+      });
+      
+      setPageLabelsMap(labelMap);
+      
+      // Sélectionner les premières pages par défaut
+      const initialSelection = pages.slice(0, Math.min(5, pages.length));
+      setSelectedPages(initialSelection);
+      
+      console.log('Pages analysées:', pages.map(p => ({ 
+        original: p, 
+        label: labelMap.get(p),
+        info: createUserLabel(p)
+      })));
+    }
+  }, [pages]);
+
+  // Récupérer les données pageviews (version multi-langues simplifiée)
   const fetchPageviews = async () => {
-    if (!selectedPages.length || !analysisConfig) {
-      console.log('⏸️ Pas de pages sélectionnées ou config manquante');
+    if (!selectedPages.length || !analysisConfig?.startDate || !analysisConfig?.endDate) {
+      console.log('Conditions manquantes pour récupérer les pageviews:', {
+        selectedPages: selectedPages.length,
+        startDate: analysisConfig?.startDate,
+        endDate: analysisConfig?.endDate
+      });
       return;
     }
 
@@ -97,56 +89,71 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
     setError(null);
 
     try {
-      const pageNames = selectedPages.map(page => page.title || page);
-      const languageToUse = determineLanguage();
+      console.log('🚀 Requête pageviews multi-langues:');
+      console.log('- Pages sélectionnées:', selectedPages);
+      console.log('- Période:', analysisConfig.startDate, 'à', analysisConfig.endDate);
       
-      console.log('📤 Requête pageviews:');
-      console.log('  - Pages:', pageNames);
-      console.log('  - Langue:', languageToUse);
-      console.log('  - Période:', analysisConfig.startDate, 'à', analysisConfig.endDate);
+      // IMPORTANT: Envoyer les pages telles quelles (URLs complètes)
+      // L'API se charge de la détection de langue per-page
+      const requestData = {
+        pages: selectedPages, // Pas de transformation, on garde les URLs originales
+        start_date: analysisConfig.startDate,
+        end_date: analysisConfig.endDate,
+        // On ne spécifie PAS default_language car toutes nos pages sont des URLs
+      };
+      
+      console.log('📤 Données de requête:', JSON.stringify(requestData, null, 2));
       
       const data = await apiService.fetchPageviewsForChart(
-        pageNames,
+        selectedPages,
         analysisConfig.startDate,
         analysisConfig.endDate,
-        { language: languageToUse }  // 🔧 FIX: Passer la langue dans options
+        {} // Pas d'options, détection auto
       );
 
       console.log('📥 Données pageviews reçues:', data);
-      console.log('🔍 Métadonnées langue:', {
-        requested: data?.metadata?.requested_language,
-        detected: data?.metadata?.detected_language
-      });
+      
+      if (data.metadata?.languages_summary) {
+        console.log('🌍 Langues détectées par l\'API:', data.metadata.languages_summary);
+      }
+      
+      // Vérifier que les données correspondent aux pages demandées
+      if (data.data && data.data.length > 0) {
+        const dataKeys = Object.keys(data.data[0]).filter(key => key !== 'date');
+        console.log('📊 Clés de données reçues:', dataKeys);
+        console.log('🔍 Pages demandées:', selectedPages);
+        
+        // Vérifier la correspondance
+        const missingPages = selectedPages.filter(page => !dataKeys.includes(page));
+        if (missingPages.length > 0) {
+          console.warn('⚠️ Pages manquantes dans les données:', missingPages);
+        }
+      }
       
       setPageviewsData(data);
     } catch (err) {
       console.error('❌ Erreur récupération pageviews:', err);
-      setError(err.message);
+      setError(`Erreur: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Effets avec debug
+  // Récupérer les données quand la sélection ou config change
   useEffect(() => {
-    console.log('🔄 Effect: pages changed:', pages);
-    setSelectedPages(pages?.slice(0, 5) || []);
-  }, [pages]);
-
-  useEffect(() => {
-    console.log('🔄 Effect: config or selection changed');
-    console.log('  - analysisConfig:', analysisConfig);
-    console.log('  - selectedPages:', selectedPages);
-    fetchPageviews();
+    if (selectedPages.length > 0 && analysisConfig) {
+      console.log('🔄 Déclenchement fetchPageviews - pages:', selectedPages.length, 'config:', !!analysisConfig);
+      fetchPageviews();
+    }
   }, [selectedPages, analysisConfig]);
 
-  // Gérer la sélection des pages
+  // Gérer la sélection/déselection des pages
   const handlePageToggle = (pageIndex) => {
     const page = pages[pageIndex];
-    const isSelected = selectedPages.some(p => (p.title || p) === (page.title || page));
+    const isSelected = selectedPages.includes(page);
     
     if (isSelected) {
-      setSelectedPages(prev => prev.filter(p => (p.title || p) !== (page.title || page)));
+      setSelectedPages(prev => prev.filter(p => p !== page));
     } else {
       if (selectedPages.length < 10) {
         setSelectedPages(prev => [...prev, page]);
@@ -154,20 +161,10 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
     }
   };
 
-  // 🆕 FONCTION POUR OBTENIR LA COULEUR D'UNE PAGE SELON SON INDEX ORIGINAL
-  const getPageColor = (pageName) => {
-    // Trouver l'index de cette page dans la liste originale `pages`
-    const originalIndex = pages?.findIndex(page => (page.title || page) === pageName) ?? 0;
-    
-    // Si c'est une comparaison (plusieurs pages disponibles) et qu'une seule est sélectionnée
-    const isComparison = pages && pages.length > 1;
-    const singlePageSelected = selectedPages.length === 1;
-    
-    if (isComparison && singlePageSelected) {
-      return '#000000'; // Noir pour une seule page dans une comparaison
-    }
-    
-    return colors[originalIndex % colors.length]; // Couleur basée sur l'index original
+  // Obtenir la couleur pour une page
+  const getPageColor = (page) => {
+    const originalIndex = pages?.indexOf(page) ?? 0;
+    return colors[originalIndex % colors.length];
   };
 
   // Formatter les nombres
@@ -185,12 +182,28 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
     if (active && payload && payload.length) {
       return (
         <div className="pageviews-tooltip">
-          <p className="tooltip-date">{`${label}`}</p>
-          {payload.map((entry, index) => (
-            <p key={index} style={{ color: entry.color }}>
-              {`${entry.dataKey}: ${formatNumber(entry.value)} vues`}
+          <p className="tooltip-date">{label}</p>
+          {payload.map((entry, index) => {
+            // entry.dataKey est l'URL originale
+            const originalUrl = entry.dataKey;
+            const userLabel = pageLabelsMap.get(originalUrl) || originalUrl;
+            const pageInfo = createUserLabel(originalUrl);
+            
+            return (
+              <p key={index} style={{ color: entry.color }}>
+                {userLabel}
+                {pageInfo.lang && <span className="lang-indicator"> ({pageInfo.lang.toUpperCase()})</span>}
+                : {formatNumber(entry.value)} vues
+              </p>
+            );
+          })}
+          {pageviewsData?.metadata?.languages_summary && Object.keys(pageviewsData.metadata.languages_summary).length > 1 && (
+            <p className="languages-summary">
+              Langues: {Object.entries(pageviewsData.metadata.languages_summary)
+                .map(([lang, count]) => `${lang}(${count})`)
+                .join(', ')}
             </p>
-          ))}
+          )}
         </div>
       );
     }
@@ -199,15 +212,17 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
 
   return (
     <div className="pageviews-chart-simple">
-      
+    
 
-      {/* Sélecteur de pages compact si nécessaire */}
+      {/* Sélecteur de pages */}
       {pages && pages.length > 1 && (
         <div className="chart-pages-selector-minimal">
           <div className="pages-selector-chips">
             {pages.map((page, index) => {
-              const isSelected = selectedPages.some(p => (p.title || p) === (page.title || page));
-              const color = colors[index % colors.length]; // 🆕 Couleur basée sur l'index original
+              const isSelected = selectedPages.includes(page);
+              const color = colors[index % colors.length];
+              const pageInfo = createUserLabel(page);
+              const displayLabel = pageLabelsMap.get(page) || pageInfo.label;
               
               return (
                 <button
@@ -219,22 +234,32 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
                     backgroundColor: `${color}15`,
                     color: color
                   } : {}}
+                  disabled={!isSelected && selectedPages.length >= 10}
                 >
                   <span className="chip-title">
-                    {(page.title || page).length > 15 
-                      ? `${(page.title || page).substring(0, 15)}...` 
-                      : (page.title || page)
+                    {displayLabel.length > 15 
+                      ? `${displayLabel.substring(0, 15)}...` 
+                      : displayLabel
                     }
                   </span>
-                  
+                  {pageInfo.lang && (
+                    <span className="chip-lang-indicator">
+                      &nbsp;{pageInfo.lang.toUpperCase()}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
+          {selectedPages.length >= 10 && (
+            <div className="selection-limit-info">
+              Maximum 10 pages sélectionnées
+            </div>
+          )}
         </div>
       )}
 
-      {/* Graphique seulement */}
+      {/* Graphique */}
       {pageviewsData && !loading && !error && (
         <div className="chart-wrapper-simple">
           <ResponsiveContainer width="100%" height={300}>
@@ -255,15 +280,14 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
               <Tooltip content={<CustomTooltip />} />
               
               {selectedPages.map((page) => {
-                const pageName = page.title || page;
-                const lineColor = getPageColor(pageName); // 🆕 Couleur basée sur l'index original
+                const lineColor = getPageColor(page);
                 
                 return (
                   <Line
-                    key={pageName}
+                    key={page} // Utilise l'URL originale comme clé
                     type="monotone"
-                    dataKey={pageName}
-                    stroke={lineColor} // 🆕 Couleur fixe basée sur la position originale
+                    dataKey={page} // L'API retourne les données indexées par URL originale
+                    stroke={lineColor}
                     strokeWidth={2}
                     dot={{ r: 2 }}
                     activeDot={{ r: 4 }}
@@ -286,10 +310,17 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
 
       {error && (
         <div className="chart-error-minimal">
-          <span>❌ {error}</span>
+          <span>{error}</span>
           <button onClick={fetchPageviews} className="retry-btn-minimal">
             Réessayer
           </button>
+        </div>
+      )}
+
+      {/* État vide */}
+      {!pageviewsData && !loading && !error && selectedPages.length === 0 && (
+        <div className="chart-empty-state">
+          <span>Sélectionnez au moins une page pour voir le graphique</span>
         </div>
       )}
     </div>

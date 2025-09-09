@@ -23,7 +23,7 @@ def parse_date(date_str):
     except ValueError:
         raise ValueError(f"Format de date invalide. Utilisez YYYY-MM-DD (ex: 2024-01-01)")
 
-def get_monopolization_score(title: str, lang: str = "fr", limit: int = 100, end=None):
+def get_monopolization_score(title: str, lang: str = "fr", limit: int = 10, end=None):
     """
     Récupère les dernières `limit` révisions de la page `title` et calcule la proportion
     de contributions du contributeur le plus actif.

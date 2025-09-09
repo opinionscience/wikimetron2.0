@@ -11,19 +11,26 @@ const WikimetronApp = () => {
     data: null,
     results: null,
     error: null,
-    progress: 0
+    progress: 0,
+    originalPages: null, // AJOUT : conserver les pages originales
+    analysisConfig: null // AJOUT : conserver la config d'analyse
   });
 
   const resultsRef = useRef(null);
 
-  // Fonction pour démarrer l'analyse - adaptée de votre logique existante
+  // Fonction pour démarrer l'analyse - modifiée pour conserver les pages originales
   const handleAnalysisStart = (analysisData) => {
     setAnalysisState({
       status: 'loading',
       data: analysisData,
       results: null,
       error: null,
-      progress: 0
+      progress: 0,
+      originalPages: analysisData.pages, // AJOUT : conserver les URLs originales
+      analysisConfig: { // AJOUT : conserver la config pour les charts
+        startDate: analysisData.startDate,
+        endDate: analysisData.endDate
+      }
     });
 
     // Scroll vers la section résultats après un court délai
@@ -63,22 +70,22 @@ const WikimetronApp = () => {
     }));
   };
 
-  // Fonction pour reset l'analyse (équivalent de votre goToConfig)
+  // Fonction pour reset l'analyse
   const handleReset = () => {
     setAnalysisState({
       status: 'idle',
       data: null,
       results: null,
       error: null,
-      progress: 0
+      progress: 0,
+      originalPages: null, // AJOUT
+      analysisConfig: null // AJOUT
     });
   };
 
   // Fonction pour refaire une analyse (scroll vers le haut)
   const handleNewAnalysis = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    // Optionnel : vous pouvez aussi reset l'état ici si souhaité
-    // handleReset();
   };
 
   return (
@@ -87,7 +94,7 @@ const WikimetronApp = () => {
       subtitle="Wikipedia Content Intelligence Platform"
     >
       <div className="main-page-container">
-        {/* Section Configuration - utilise votre ConfigurationPage existant mais modifié */}
+        {/* Section Configuration */}
         <div className="configuration-section">
           <ConfigurationPage
             onAnalysisStart={handleAnalysisStart}
@@ -95,7 +102,6 @@ const WikimetronApp = () => {
             onAnalysisError={handleAnalysisError}
             onProgressUpdate={handleProgressUpdate}
             isAnalyzing={analysisState.status === 'loading'}
-            // On retire onNavigateToResults car on n'en a plus besoin
           />
         </div>
 
@@ -106,6 +112,8 @@ const WikimetronApp = () => {
         >
           <ResultsSection 
             analysisState={analysisState}
+            originalPages={analysisState.originalPages} // AJOUT : passer les pages originales
+            analysisConfig={analysisState.analysisConfig} // AJOUT : passer la config
             onNewAnalysis={handleNewAnalysis}
             onReset={handleReset}
           />

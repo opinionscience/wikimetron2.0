@@ -309,8 +309,8 @@ if __name__ == "__main__":
         description="Calcul parallélisé du taux de revert d'une ou plusieurs pages Wikipedia"
     )
     parser.add_argument("pages", nargs="+", help="Titres d'articles Wikipedia")
-    parser.add_argument("--start", default="2025-04-21", help="Date de début YYYY-MM-DD")
-    parser.add_argument("--end", default="2025-05-21", help="Date de fin YYYY-MM-DD")
+    parser.add_argument("--start", default="2025-07-01", help="Date de début YYYY-MM-DD")
+    parser.add_argument("--end", default="2025-07-30", help="Date de fin YYYY-MM-DD")
     parser.add_argument("--lang", default="fr", help="Code langue wiki (ex. 'en')")
     parser.add_argument("--verbose", action="store_true", help="Affiche le score de chaque révision")
     parser.add_argument("--batch-size", type=int, default=10, help="Taille des batches pour gros volumes")

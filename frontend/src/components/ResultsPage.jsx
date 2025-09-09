@@ -179,19 +179,19 @@ const SensitivityScoresHeader = ({ pages, selectedIndices }) => {
   const selectedPages = selectedIndices.map(index => pages[index]);
 
   const getSensitivityExplanation = (score) => {
-    const numScore = parseFloat(score);
-    if (numScore >= 80) {
-      return "Score très élevé : Cette page est extrêmement sensible aux changements. Les modifications peuvent avoir un impact significatif sur la perception et la crédibilité du contenu.";
-    } else if (numScore >= 60) {
-      return "Score élevé : Cette page présente une sensibilité notable. Les modifications doivent être effectuées avec prudence et vérification.";
-    } else if (numScore >= 40) {
-      return "Score modéré : Cette page a une sensibilité moyenne. Les changements sont généralement bien tolérés mais nécessitent une attention raisonnable.";
-    } else if (numScore >= 20) {
-      return "Score faible : Cette page a une faible sensibilité. Les modifications sont généralement peu controversées.";
-    } else {
-      return "Score très faible : Cette page est très peu sensible aux changements. Les modifications sont rarement problématiques.";
-    }
-  };
+  const numScore = parseFloat(score);
+  if (numScore >= 80) {
+    return "Very high score: This page is extremely sensitive";
+  } else if (numScore >= 60) {
+    return "High score: This page shows notable sensitivity.";
+  } else if (numScore >= 40) {
+    return "Moderate score: This page has average sensitivity.";
+  } else if (numScore >= 15) {
+    return "Low score: This page has low sensitivity.";
+  } else {
+    return "Very low score: This page has very little sensitivity.";
+  }
+};
 
   return (
     <div className="sensitivity-scores-header">
@@ -206,14 +206,12 @@ const SensitivityScoresHeader = ({ pages, selectedIndices }) => {
               content={
                 <div>
                   <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
-                    Score de sensibilité : {formatMetricValue(page.scores?.sensitivity)}%
+                    sensitivity score : {formatMetricValue(page.scores?.sensitivity)}%
                   </div>
                   <div style={{ marginBottom: '8px' }}>
                     {getSensitivityExplanation(page.scores?.sensitivity)}
                   </div>
-                  <div style={{ fontSize: '12px', opacity: '0.8' }}>
-                    Basé sur l'analyse de l'activité éditoriale, des vues et des métriques de qualité.
-                  </div>
+                  
                 </div>
               }
               position="bottom"
@@ -317,7 +315,7 @@ const ErrorView = ({ error, onReset }) => (
 );
 
 // Vue des résultats
-const ResultsView = ({ results, analysisConfig }) => {
+const ResultsView = ({ results, analysisConfig, originalPages }) => {
   const [selectedPageIndices, setSelectedPageIndices] = useState([0]);
   const [comparisonMode, setComparisonMode] = useState(false);
   
@@ -379,9 +377,9 @@ const ResultsView = ({ results, analysisConfig }) => {
               </div>
               <div className="chart-wrapper-modern">
                 <PageviewsChart
-                  pages={selectedPages}
-                  analysisConfig={analysisConfig}
-                />
+  pages={selectedPageIndices.map(index => originalPages[index])}
+  analysisConfig={analysisConfig}
+/>
               </div>
             </div>
           </div>
@@ -399,10 +397,10 @@ const ResultsView = ({ results, analysisConfig }) => {
                 <h4 className="chart-title-modern">Edits</h4>
               </div>
               <div className="chart-wrapper-modern">
-                <EditChart
-                  pages={selectedPages}
-                  analysisConfig={analysisConfig}
-                />
+               <EditChart
+  pages={selectedPageIndices.map(index => originalPages[index])}
+  analysisConfig={analysisConfig}
+/>
               </div>
             </div>
           </div>
@@ -413,7 +411,14 @@ const ResultsView = ({ results, analysisConfig }) => {
 };
 
 // Composant principal
-const ResultsSection = ({ analysisState, onNewAnalysis, onReset }) => {
+const ResultsSection = ({ 
+  analysisState, 
+  originalPages,    // AJOUT
+  analysisConfig,   // AJOUT 
+  onNewAnalysis, 
+  onReset 
+}) => {
+
   const { status, data, results, error, progress } = analysisState;
 
   if (status === 'idle') {
@@ -435,59 +440,63 @@ const ResultsSection = ({ analysisState, onNewAnalysis, onReset }) => {
   return (
     <>
       <header className="wikimetron-header minimal-header">
-        <div className="minimal-container">
-          <div className="header-content" style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'space-between',
-            width: '100%',
-            position: 'relative'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <a href="https://disinfo-prompt.eu/" target="_blank" rel="noopener noreferrer" className="header-logo-link">
-                <img src="/prompt.png" alt="Logo 1" className="header-logo" />
-              </a>
-              <h1 className="minimal-title">Wikipedia Sensitivity Meter</h1>
-            </div>
-            
-            {status === 'completed' && results && (
-              <div style={{ 
-                position: 'absolute',
-                right: '0',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                display: 'flex',
-                gap: '12px',
-                alignItems: 'center',
-                marginRight: '10px'
-              }}>
-                <button
-                  onClick={handleExportResults}
-                  className="action-button-modern primary"
-                >
-                  Export Results
-                </button>
-                <button
-                  onClick={onNewAnalysis}
-                  className="action-button-modern secondary"
-                >
-                  ↑ New Analysis
-                </button>
-              </div>
-            )}
-          </div>
+  <div className="minimal-container">
+    <div className="header-content">
+      {/* Section logo et titre */}
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center',
+        flex: '1',
+        minWidth: '0' // Permet le text-overflow
+      }}>
+        <a 
+          href="https://disinfo-prompt.eu/" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="header-logo-link"
+        >
+          <img src="/prompt.png" alt="Logo 1" className="header-logo" />
+        </a>
+        <h1 className="minimal-title">Wikipedia Sensitivity Meter</h1>
+      </div>
+      
+      {/* Section boutons - s'adapte automatiquement en mobile */}
+      {status === 'completed' && results && (
+        <div style={{ 
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'center',
+          flexShrink: 0,
+          // Sur mobile, les boutons passeront en pleine largeur grâce au CSS
+        }}>
+          <button
+            onClick={handleExportResults}
+            className="action-button-modern primary"
+          >
+            Export Results
+          </button>
+          <button
+            onClick={onNewAnalysis}
+            className="action-button-modern secondary"
+          >
+            ↑ New Analysis
+          </button>
         </div>
-      </header>
+      )}
+    </div>
+  </div>
+</header>
       
       <div className={`results-section-container ${status}`}>
         {status === 'loading' && <LoadingView analysisData={data} progress={progress} />}
         {status === 'error' && <ErrorView error={error} onReset={onReset} />}
         {status === 'completed' && results && (
-          <ResultsView 
-            results={results} 
-            analysisConfig={data}
-          />
-        )}
+  <ResultsView 
+    results={results} 
+    analysisConfig={analysisConfig}  // Utilisez analysisConfig au lieu de data
+    originalPages={originalPages}    // AJOUT
+  />
+)}
       </div>
     </>
   );

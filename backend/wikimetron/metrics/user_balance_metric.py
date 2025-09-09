@@ -142,7 +142,7 @@ if __name__ == "__main__":
     parser.add_argument("pages", nargs="+", help="Titres des pages Wikipedia")
     parser.add_argument("--lang", default="fr", help="Langue (fr, en, ...)")
     parser.add_argument("--users", type=int, default=10, help="Nb contributeurs à analyser")
-    parser.add_argument("--contribs", type=int, default=10, help="Nb contributions par contributeur")
+    parser.add_argument("--contribs", type=int, default=100, help="Nb contributions par contributeur")
     parser.add_argument("--end", help="Date de fin au format YYYY-MM-DD (défaut: aujourd'hui)")
 
     args = parser.parse_args()

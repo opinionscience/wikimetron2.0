@@ -20,7 +20,7 @@
 /* Base */
 /* Background global très clair */
 .body, html {
-  background-color: #f8fdf6; /* Version très claire de #cafda6 */
+  background: linear-gradient(135deg, #f8fafc, #e2e8f0); /* Version très claire de #cafda6 */
   min-height: 100vh;
  font-family: 'Barlow', sans-serif !important;
 
@@ -28,7 +28,7 @@
 
 /* Alternative avec un dégradé subtil */
 .wikimetron-app {
-  background: linear-gradient(135deg, #f8fdf6 0%, #f5fcf1 100%);
+  
   min-height: 100vh;
 }
 
@@ -46,32 +46,37 @@ body {
   transition: transform 0.3s ease;
 }
 
-
 .minimal-container {
- align-items: flex-start;
-    display: flex
-;
-    flex-direction: column;
-    gap: .5rem;
-    margin: 0 auto;
-    
-    padding: 1rem 0;
-    margin-left: 100px;
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0 auto;
+  padding: 1rem;
+  margin-left: 100px;
+  max-width: 100%;
 }
 
 .header-content {
   display: flex;
   align-items: center;
   gap: 1rem;
+  width: 100%;
+}
+.header-content-principal {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
 }
 
 .header-logo-link {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .header-logo {
-  
   height: 2rem;
   width: auto;
 }
@@ -83,6 +88,9 @@ body {
   color: var(--color-text);
   font-family: 'Linux Libertine O', serif;
   vertical-align: bottom;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 
@@ -344,6 +352,7 @@ body {
     border: 2px solid var(--color-border);
     background-color: white;
     transition: all .2s ease;
+    border-color: #cbd5e1;
 }
 
 .submit-btn:hover:not(:disabled) {
@@ -563,9 +572,7 @@ body {
     gap: 1rem;
   }
   
-  .main-content {
-    padding: 2rem 1rem;
-  }
+
   
   .card-header, .card-body {
     padding: 2rem 1.5rem;
@@ -642,3 +649,49 @@ code, pre, kbd, samp {
 .score-value {
   font-family: inherit !important;
 }
+@media (max-width: 768px) {
+  .minimal-container {
+    margin-left: 0;
+    padding: 0.75rem;
+  }
+  
+  .header-content {
+    flex-direction: column;
+    gap: 0.75rem;
+  
+  }
+  .header-content-principal {
+    flex-direction: row;
+    gap: 0.75rem;
+    gap: 0.5rem;
+  }
+  .minimal-title {
+    font-size: 1.25rem;
+    margin: 0 0 0 10px;
+    text-align: center;
+  }
+  
+  .action-button-modern {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .minimal-container {
+    padding: 0.5rem;
+  }
+  
+  .header-content {
+    gap: 0.5rem;
+  }
+  
+  .minimal-title {
+    font-size: 1.1rem;
+    margin: 0 0 0 8px;
+    line-height: 1.3;
+  }
+  
+  .header-logo {
+    height: 1.5rem;
+  }}

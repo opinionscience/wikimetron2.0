@@ -71,8 +71,8 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("pages", nargs="+")
     ap.add_argument("--lang", default="fr")
-    ap.add_argument("--start", default="2025-06-20")
-    ap.add_argument("--end", default="2025-06-25")
+    ap.add_argument("--start", default="2025-07-01")
+    ap.add_argument("--end", default="2025-07-30")
     ns = ap.parse_args()
 
     s = get_reference_risk_score(ns.pages, ns.start, ns.end, ns.lang)

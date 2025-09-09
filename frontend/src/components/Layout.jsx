@@ -5,7 +5,7 @@ const Layout = ({ children, pageTitle, subtitle, onBackToConfig }) => (
   <div className="wikimetron-app">
     <header className="wikimetron-header minimal-header">
       <div className="minimal-container">
-        <div className="header-content">
+        <div className="header-content-principal">
           <a
             href="https://disinfo-prompt.eu/"
             target="_blank"

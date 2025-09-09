@@ -7,6 +7,7 @@ import requests
 import pandas as pd
 from datetime import datetime, timezone
 from typing import List, Optional
+import argparse
 
 UA = {"User-Agent": "WikiAnalyzer/2.0 (analysis@example.com)"}
 
@@ -103,16 +104,28 @@ def get_recency_score(pages: List[str], lang: str = "fr", max_days: int = 365, e
     series = pd.Series(scores, name="recency_score")
     return series
 
-# Exemple d'utilisation
+# CLI simple
 if __name__ == "__main__":
-    pages = ["Paris", "Lyon", "Marseille"]
+    parser = argparse.ArgumentParser(description="Analyse le score de récence des pages Wikipédia")
     
-    # Score par rapport à aujourd'hui
-    scores_today = get_recency_score(pages)
-    print("Scores par rapport à aujourd'hui (10ème révision):")
-    print(scores_today)
+    parser.add_argument('pages', nargs='*', default=["Paris", "Lyon", "Marseille"],
+                       help='Titres des pages à analyser')
+    parser.add_argument('--lang', default='fr',
+                       help='Code langue (fr, en, etc.)')
+    parser.add_argument('--max-days', type=int, default=365,
+                       help='Nombre de jours pour score maximal')
+    parser.add_argument('--end-date',
+                       help='Date de référence YYYY-MM-DD (défaut: aujourd\'hui)')
     
-    # Score par rapport au 1er janvier 2024 (basé sur la 10ème révision)
-    scores_2024 = get_recency_score(pages, end="2025-07-01")
-    print("\nScores par rapport au 1er juillet 2025 (10ème révision):")
-    print(scores_2024)
+    args = parser.parse_args()
+    
+    # Calcul des scores
+    scores = get_recency_score(
+        pages=args.pages,
+        lang=args.lang, 
+        max_days=args.max_days,
+        end=args.end_date
+    )
+    
+    print(f"Scores de récence (langue: {args.lang}, max_days: {args.max_days}):")
+    print(scores)

@@ -1,4 +1,3 @@
-// File: src/components/results/EditChart.jsx
 import React, { useState, useEffect } from 'react';
 import {
   LineChart,
@@ -7,7 +6,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer
 } from 'recharts';
 import { apiService } from '../../services/api.js';
@@ -16,10 +14,11 @@ const EditChart = ({ pages, analysisConfig }) => {
   const [editData, setEditData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [selectedPages, setSelectedPages] = useState(pages?.slice(0, 5) || []);
-  const [editorType, setEditorType] = useState('user'); // 'user' ou 'all'
+  const [selectedPages, setSelectedPages] = useState([]);
+  const [editorType, setEditorType] = useState('user');
+  const [pageLabelsMap, setPageLabelsMap] = useState(new Map());
 
-  // Couleurs pour les différentes pages (même palette que PageviewsChart)
+  // Couleurs pour les différentes pages (cohérent avec PageviewsChart)
   const colors = [
     '#3b82f6', // Bleu
     '#ef4444', // Rouge
@@ -29,70 +28,86 @@ const EditChart = ({ pages, analysisConfig }) => {
     '#06b6d4'  // Cyan
   ];
 
-  // 🔍 FONCTION DE DEBUG POUR COMPRENDRE COMMENT LA LANGUE ARRIVE (identique à PageviewsChart)
-  const debugAnalysisConfig = () => {
-    console.log('🔍 === DEBUG EDIT CHART ===');
-    console.log('📋 analysisConfig complet:', analysisConfig);
-    console.log('🌐 analysisConfig.language:', analysisConfig?.language);
-    console.log('🎯 analysisConfig.detectedLanguage:', analysisConfig?.detectedLanguage);
-    console.log('📄 pages reçues:', pages);
-    console.log('📑 selectedPages:', selectedPages);
-    console.log('⚙️ editorType:', editorType);
-    console.log('===============================');
+  // Normaliser une page (peut être un objet d'analyse ou une string)
+  const normalizePage = (page) => {
+    if (typeof page === 'object' && page !== null) {
+      return page.original_input || page.title || String(page);
+    }
+    return String(page);
   };
 
-  // 🔧 LOGIQUE AMÉLIORÉE POUR DÉTERMINER LA LANGUE (identique à PageviewsChart)
-  const determineLanguage = () => {
-    debugAnalysisConfig();
+  // Créer un label d'affichage user-friendly
+  const createUserLabel = (page) => {
+    const normalizedPage = normalizePage(page);
     
-    // Essayer plusieurs sources de langue dans l'ordre de priorité
-    let language = null;
-    let source = 'fallback';
-    
-    // 1. Langue explicitement détectée par l'API
-    if (analysisConfig?.detectedLanguage) {
-      language = analysisConfig.detectedLanguage;
-      source = 'API detected';
-    }
-    // 2. Langue configurée manuellement
-    else if (analysisConfig?.language) {
-      language = analysisConfig.language;
-      source = 'manual config';
-    }
-    // 3. Essayer de détecter depuis les pages elles-mêmes
-    else if (pages && pages.length > 0) {
-      // Chercher une URL Wikipedia dans les pages
-      for (const page of pages) {
-        const pageTitle = page.title || page;
-        if (typeof pageTitle === 'string' && pageTitle.includes('wikipedia.org')) {
-          try {
-            const match = pageTitle.match(/https?:\/\/([a-z]{2})\.wikipedia\.org/);
-            if (match) {
-              language = match[1];
-              source = 'URL detection';
-              break;
-            }
-          } catch (e) {
-            console.warn('Erreur détection langue depuis URL:', e);
-          }
+    if (typeof normalizedPage === 'string' && normalizedPage.startsWith('http') && normalizedPage.includes('wikipedia.org')) {
+      try {
+        const url = new URL(normalizedPage);
+        const hostname = url.hostname;
+        const lang = hostname.split('.')[0];
+        
+        if (url.pathname.includes('/wiki/')) {
+          const rawTitle = url.pathname.split('/wiki/')[1];
+          const cleanTitle = decodeURIComponent(rawTitle.replace(/_/g, ' '));
+          return { label: cleanTitle, lang: lang, original: normalizedPage };
         }
+      } catch (e) {
+        console.warn('Erreur parsing URL:', e);
       }
     }
     
-    // 4. Fallback par défaut
-    if (!language) {
-      language = 'fr';
-      source = 'default fallback';
+    // Pour les objets d'analyse, essayer d'utiliser le titre
+    if (typeof page === 'object' && page !== null && page.title) {
+      return { 
+        label: page.title, 
+        lang: page.language || null, 
+        original: page.original_input || normalizedPage 
+      };
     }
     
-    console.log(`🎯 Langue déterminée: "${language}" (source: ${source})`);
-    return language;
+    return { label: normalizedPage, lang: null, original: normalizedPage };
   };
 
-  // Récupérer les données d'éditions
+  // Initialiser le mapping des labels et pages sélectionnées
+  useEffect(() => {
+    if (pages && pages.length > 0) {
+      const labelMap = new Map();
+      const normalizedPages = [];
+      
+      pages.forEach((page) => {
+        const pageInfo = createUserLabel(page);
+        const normalizedPage = normalizePage(page);
+        
+        labelMap.set(normalizedPage, pageInfo.label);
+        normalizedPages.push(normalizedPage);
+      });
+      
+      setPageLabelsMap(labelMap);
+      
+      // Sélectionner les premières pages normalisées par défaut
+      const initialSelection = normalizedPages.slice(0, Math.min(5, normalizedPages.length));
+      setSelectedPages(initialSelection);
+      
+      console.log('EditChart - Pages analysées:', pages.map(p => {
+        const normalized = normalizePage(p);
+        return { 
+          original: p,
+          normalized: normalized,
+          label: labelMap.get(normalized),
+          info: createUserLabel(p)
+        };
+      }));
+    }
+  }, [pages]);
+
+  // Récupérer les données d'éditions (version multi-langues simplifiée)
   const fetchEditData = async () => {
-    if (!selectedPages.length || !analysisConfig) {
-      console.log('⏸️ Pas de pages sélectionnées ou config manquante');
+    if (!selectedPages.length || !analysisConfig?.startDate || !analysisConfig?.endDate) {
+      console.log('Conditions manquantes pour récupérer les éditions:', {
+        selectedPages: selectedPages.length,
+        startDate: analysisConfig?.startDate,
+        endDate: analysisConfig?.endDate
+      });
       return;
     }
 
@@ -100,79 +115,84 @@ const EditChart = ({ pages, analysisConfig }) => {
     setError(null);
 
     try {
-      const pageNames = selectedPages.map(page => page.title || page);
-      const languageToUse = determineLanguage();
+      console.log('🚀 Requête éditions multi-langues:');
+      console.log('- Pages sélectionnées:', selectedPages);
+      console.log('- Type éditeur:', editorType);
+      console.log('- Période:', analysisConfig.startDate, 'à', analysisConfig.endDate);
       
-      console.log('📤 Requête éditions:');
-      console.log('  - Pages:', pageNames);
-      console.log('  - Langue:', languageToUse);
-      console.log('  - Type éditeur:', editorType);
-      console.log('  - Période:', analysisConfig.startDate, 'à', analysisConfig.endDate);
+      // IMPORTANT: Envoyer les pages telles quelles (URLs complètes)
+      // L'API se charge de la détection de langue per-page
+      const requestData = {
+        pages: selectedPages,
+        start_date: analysisConfig.startDate,
+        end_date: analysisConfig.endDate,
+        editor_type: editorType,
+        // On ne spécifie PAS default_language car toutes nos pages sont des URLs
+      };
+      
+      console.log('📤 Données de requête éditions:', JSON.stringify(requestData, null, 2));
       
       const data = await apiService.fetchEditTimeseriesForChart(
-        pageNames,
+        selectedPages,
         analysisConfig.startDate,
         analysisConfig.endDate,
-        { language: languageToUse, editorType: editorType }  // 🔧 FIX: Même signature que PageviewsChart
+        { editorType: editorType } // Pas d'options de langue, détection auto
       );
 
       console.log('📥 Données éditions reçues:', data);
-      console.log('🔍 Métadonnées langue:', {
-        requested: data?.metadata?.requested_language,
-        detected: data?.metadata?.detected_language
-      });
-
+      
+      if (data.metadata?.languages_summary) {
+        console.log('🌍 Langues détectées par l\'API:', data.metadata.languages_summary);
+      }
+      
+      // Vérifier la correspondance des données
+      if (data.data && data.data.length > 0) {
+        const dataKeys = Object.keys(data.data[0]).filter(key => key !== 'date');
+        console.log('📊 Clés de données reçues:', dataKeys);
+        console.log('🔍 Pages demandées:', selectedPages);
+        
+        const missingPages = selectedPages.filter(page => !dataKeys.includes(page));
+        if (missingPages.length > 0) {
+          console.warn('⚠️ Pages manquantes dans les données:', missingPages);
+        }
+      }
+      
       setEditData(data);
     } catch (err) {
       console.error('❌ Erreur récupération éditions:', err);
-      setError(err.message);
+      setError(`Erreur: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Effets avec debug (identique à PageviewsChart)
+  // Récupérer les données quand la sélection ou config change
   useEffect(() => {
-    console.log('🔄 Effect: pages changed:', pages);
-    setSelectedPages(pages?.slice(0, 5) || []);
-  }, [pages]);
-
-  useEffect(() => {
-    console.log('🔄 Effect: config or selection changed');
-    console.log('  - analysisConfig:', analysisConfig);
-    console.log('  - selectedPages:', selectedPages);
-    console.log('  - editorType:', editorType);
-    fetchEditData();
+    if (selectedPages.length > 0 && analysisConfig) {
+      console.log('🔄 Déclenchement fetchEditData - pages:', selectedPages.length, 'config:', !!analysisConfig);
+      fetchEditData();
+    }
   }, [selectedPages, analysisConfig, editorType]);
 
-  // Gérer la sélection des pages
+  // Gérer la sélection/déselection des pages
   const handlePageToggle = (pageIndex) => {
-    const page = pages[pageIndex];
-    const isSelected = selectedPages.some(p => (p.title || p) === (page.title || page));
+    const originalPage = pages[pageIndex];
+    const normalizedPage = normalizePage(originalPage);
+    const isSelected = selectedPages.includes(normalizedPage);
     
     if (isSelected) {
-      setSelectedPages(prev => prev.filter(p => (p.title || p) !== (page.title || page)));
+      setSelectedPages(prev => prev.filter(p => p !== normalizedPage));
     } else {
       if (selectedPages.length < 10) {
-        setSelectedPages(prev => [...prev, page]);
+        setSelectedPages(prev => [...prev, normalizedPage]);
       }
     }
   };
 
-  // 🆕 FONCTION POUR OBTENIR LA COULEUR D'UNE PAGE SELON SON INDEX ORIGINAL
-  const getPageColor = (pageName) => {
-    // Trouver l'index de cette page dans la liste originale `pages`
-    const originalIndex = pages?.findIndex(page => (page.title || page) === pageName) ?? 0;
-    
-    // Si c'est une comparaison (plusieurs pages disponibles) et qu'une seule est sélectionnée
-    const isComparison = pages && pages.length > 1;
-    const singlePageSelected = selectedPages.length === 1;
-    
-    if (isComparison && singlePageSelected) {
-      return '#000000'; // Noir pour une seule page dans une comparaison
-    }
-    
-    return colors[originalIndex % colors.length]; // Couleur basée sur l'index original
+  // Obtenir la couleur pour une page
+  const getPageColor = (normalizedPage) => {
+    const originalIndex = pages?.findIndex(p => normalizePage(p) === normalizedPage) ?? 0;
+    return colors[originalIndex % colors.length];
   };
 
   // Formatter les nombres
@@ -188,64 +208,87 @@ const EditChart = ({ pages, analysisConfig }) => {
     if (active && payload && payload.length) {
       return (
         <div className="pageviews-tooltip">
-          <p className="tooltip-date">{`${label}`}</p>
-          {payload.map((entry, index) => (
-            <p key={index} style={{ color: entry.color }}>
-              {`${entry.dataKey}: ${formatNumber(entry.value)} éditions`}
+          <p className="tooltip-date">{label}</p>
+          {payload.map((entry, index) => {
+            const normalizedUrl = entry.dataKey;
+            const userLabel = pageLabelsMap.get(normalizedUrl) || normalizedUrl;
+            
+            // Retrouver la page originale pour extraire les infos de langue
+            const originalPage = pages?.find(p => normalizePage(p) === normalizedUrl);
+            const pageInfo = createUserLabel(originalPage || normalizedUrl);
+            
+            return (
+              <p key={index} style={{ color: entry.color }}>
+                {userLabel}
+                {pageInfo.lang && <span className="lang-indicator"> ({pageInfo.lang.toUpperCase()})</span>}
+                : {formatNumber(entry.value)} éditions
+              </p>
+            );
+          })}
+          {editData?.metadata?.languages_summary && Object.keys(editData.metadata.languages_summary).length > 1 && (
+            <p className="languages-summary">
+              Langues: {Object.entries(editData.metadata.languages_summary)
+                .map(([lang, count]) => `${lang}(${count})`)
+                .join(', ')}
             </p>
-          ))}
+          )}
         </div>
       );
     }
     return null;
   };
 
-  // Calculer les totaux pour l'en-tête
-  const getTotalEdits = () => {
-    if (!editData?.metadata?.pages_stats) return 0;
-    return Object.values(editData.metadata.pages_stats)
-      .reduce((sum, stats) => sum + (stats.total_edits || 0), 0);
-  };
-
   return (
     <div className="pageviews-chart-container">
+      
 
-
-      {/* Sélecteur de pages - compact (même design que PageviewsChart) */}
+      {/* Sélecteur de pages */}
       {pages && pages.length > 1 && (
         <div className="chart-pages-selector-minimal">
           <div className="pages-selector-chips">
             {pages.map((page, index) => {
-              const isSelected = selectedPages.some(p => (p.title || p) === (page.title || page));
-              const color = colors[index % colors.length]; // 🆕 Couleur basée sur l'index original
+              const normalizedPage = normalizePage(page);
+              const isSelected = selectedPages.includes(normalizedPage);
+              const color = colors[index % colors.length];
+              const pageInfo = createUserLabel(page);
+              const displayLabel = pageLabelsMap.get(normalizedPage) || pageInfo.label;
               
               return (
                 <button
                   key={index}
                   className={`page-chip-minimal ${isSelected ? 'selected' : ''}`}
                   onClick={() => handlePageToggle(index)}
-                  disabled={!isSelected && selectedPages.length >= 10}
                   style={isSelected ? { 
                     borderColor: color, 
                     backgroundColor: `${color}15`,
                     color: color
                   } : {}}
+                  disabled={!isSelected && selectedPages.length >= 10}
                 >
-                  <span className="chip-title" title={page.title || page}>
-                    {(page.title || page).length > 15 
-                      ? `${(page.title || page).substring(0, 15)}...` 
-                      : (page.title || page)
+                  <span className="chip-title">
+                    {displayLabel.length > 15 
+                      ? `${displayLabel.substring(0, 15)}...` 
+                      : displayLabel
                     }
                   </span>
-                  
+                  {pageInfo.lang && (
+                    <span className="chip-lang-indicator">
+                      &nbsp;{pageInfo.lang.toUpperCase()}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
+          {selectedPages.length >= 10 && (
+            <div className="selection-limit-info">
+              Maximum 10 pages sélectionnées
+            </div>
+          )}
         </div>
       )}
 
-      {/* États de chargement et erreur */}
+      {/* États de chargement */}
       {loading && (
         <div className="chart-loading-minimal">
           <div className="mini-spinner"></div>
@@ -255,7 +298,7 @@ const EditChart = ({ pages, analysisConfig }) => {
 
       {error && (
         <div className="chart-error-minimal">
-          <span>❌ {error}</span>
+          <span>{error}</span>
           <button onClick={fetchEditData} className="retry-btn-minimal">
             Réessayer
           </button>
@@ -282,16 +325,15 @@ const EditChart = ({ pages, analysisConfig }) => {
               />
               <Tooltip content={<CustomTooltip />} />
               
-              {selectedPages.map((page) => {
-                const pageName = page.title || page;
-                const lineColor = getPageColor(pageName); // 🆕 Couleur basée sur l'index original
+              {selectedPages.map((normalizedPage) => {
+                const lineColor = getPageColor(normalizedPage);
                 
                 return (
                   <Line
-                    key={pageName}
+                    key={normalizedPage}
                     type="monotone"
-                    dataKey={pageName}
-                    stroke={lineColor} // 🆕 Couleur fixe basée sur la position originale
+                    dataKey={normalizedPage}
+                    stroke={lineColor}
                     strokeWidth={2}
                     dot={{ r: 2 }}
                     activeDot={{ r: 4 }}
@@ -301,6 +343,13 @@ const EditChart = ({ pages, analysisConfig }) => {
               })}
             </LineChart>
           </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* État vide */}
+      {!editData && !loading && !error && selectedPages.length === 0 && (
+        <div className="chart-empty-state">
+          <span>Sélectionnez au moins une page pour voir le graphique</span>
         </div>
       )}
     </div>

@@ -15,16 +15,16 @@ const METRIC_TOOLTIPS = {
   'Protection': 'Page protection level against unauthorized modifications',
   'Discussion intensity': 'Intensity of discussions on the talk page',
   'Suspicious sources': 'Potentially unreliable or biased sources',
-  'Featured article': 'Quality article status recognized by the community',
-  'Citations need': 'Number of missing or needed citations',
+  'Featured article': 'Quality article status recognized by the community, if available for the language',
+  'Citation gaps': 'Number of missing or needed citations',
   'Staleness': 'Content age, indicator of information freshness',
-  'Sources homogeneity': 'Diversity of sources used in the article',
-  'Additions/deletions balance': 'Balance between content additions and deletions in the contributions of each contributor of the page',
-  'Additions/deletions balance ': 'Balance between content additions and deletions',
+  'Source concentration': 'Diversity of sources used in the article',
+  'Contributor add/delete ratio': 'Balance between content additions and deletions in the contributions of each contributor of the page',
+  'Add/delete ratio': 'Balance between content additions and deletions',
   'Anonymity': 'Proportion of edits by anonymous users',
-  'Uniformity': 'Uniformity of contributor editing patterns',
+  'Contributors concentration': 'Share of the most active user in the latest modifications',
   'Sporadicity': 'Irregularity in contributor editing frequency',
-  'sockpuppet': 'Presence of sockpuppet accounts, indicating potential manipulation',
+  'Sockpuppets': 'Presence of sockpuppet accounts, indicating potential manipulation',
 };
 
 // Categories of metrics with descriptions - Compatible with your existing code
@@ -36,13 +36,13 @@ const METRIC_CATEGORIES = {
     color: '#ef4444'
   },
   quality: {
-    metrics: ["Suspicious sources", 'Featured article', 'Citations need', 'Staleness', 'Sources homogeneity', 'Additions/deletions balance '],
+    metrics: ["Suspicious sources", 'Featured article', 'Citation gaps', 'Staleness', 'Source concentration', 'Add/delete ratio'],
     title: 'Quality risk',
     description: 'Indicators of content quality and reliability',
     color: '#3b82f6'
   },
   risk: {
-    metrics: ["sockpuppet", 'Anonymity', 'Uniformity', 'Sporadicity', 'Additions/deletions balance'],
+    metrics: ["Sockpuppets", 'Anonymity', 'Contributors concentration', 'Sporadicity', 'Contributor add/delete ratio'],
     title: 'Behaviour risk',
     description: 'Indicators of suspicious editing behaviors',
     color: '#f59e0b'

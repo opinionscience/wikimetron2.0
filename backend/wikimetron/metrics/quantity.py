@@ -142,7 +142,7 @@ def get_user_activity_score(username, lang="fr", contribs=10, end=None):
     except (requests.RequestException, KeyError, ValueError):
         return 0
 
-def get_avg_activity_score(pages, lang="fr", contributors=10, contributions=10, end=None, debug=False):
+def get_avg_activity_score(pages, lang="fr", contributors=10, contributions=100, end=None, debug=False):
     """
     Pour chaque page, retourne la moyenne d'activité des X derniers contributeurs
     (0 = très actif, 1 = peu actif).

@@ -404,9 +404,9 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description="Test du module edit parallélisé")
     parser.add_argument("pages", nargs="+", help="Titres des pages")
-    parser.add_argument("--start", default="2025-06-01", help="Date début")
-    parser.add_argument("--end", default="2025-06-29", help="Date fin")
-    parser.add_argument("--lang", default="fr", help="Langue")
+    parser.add_argument("--start", default="2024-12-31", help="Date début")
+    parser.add_argument("--end", default="2025-08-29", help="Date fin")
+    parser.add_argument("--lang", default="hu", help="Langue")
     parser.add_argument("--workers", type=int, default=MAX_CONCURRENT_PAGES, help="Nombre de workers")
     parser.add_argument("--batch-size", type=int, default=10, help="Taille des batches")
     parser.add_argument("--detail", action="store_true", help="Affichage détaillé")

@@ -1,581 +1,581 @@
+# app.py — Wikimetron API (multi-lang v2)
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 import uuid
-import asyncio
 from datetime import datetime, timedelta
 import logging
 import traceback
 import pandas as pd
 
-# Configuration du logging
-logging.basicConfig(level=logging.INFO)
+# ────────────────────────────────────────────────────────────────────
+# Logging
+# ────────────────────────────────────────────────────────────────────
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-# Création de l'application FastAPI
+# ────────────────────────────────────────────────────────────────────
+# FastAPI App
+# ────────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="Wikimetron API",
-    description="Wikipedia Content Intelligence Platform with Auto Language Detection",
-    version="1.1.0",  # Version mise à jour
+    description="Wikipedia Content Intelligence Platform with Multi-language (per-page) support",
+    version="2.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
 )
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:8300", 
+        "http://localhost:8300",
         "http://127.0.0.1:8300",
-        "http://37.59.112.214:8300",  # ← AJOUTER CETTE LIGNE
-        "http://37.59.112.214"        # ← ET CELLE-CI aussi
+        "http://37.59.112.214:8300",
+        "http://37.59.112.214",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ═══════════════════════════════════════════════════════════════════════
-# MODÈLES PYDANTIC ADAPTÉS POUR LA DÉTECTION AUTOMATIQUE
-# ═══════════════════════════════════════════════════════════════════════
-
+# ────────────────────────────────────────────────────────────────────
+# Pydantic Models (adaptés multi-lang)
+# ────────────────────────────────────────────────────────────────────
 class AnalyzeRequest(BaseModel):
     pages: List[str]
     start_date: str
-    end_date: str  
-    language: Optional[str] = None  # 🔄 Maintenant optionnel pour détection auto
+    end_date: str
+    default_language: Optional[str] = "fr"  # utilisé uniquement si une page n’a pas de langue
 
 class PageviewsRequest(BaseModel):
     pages: List[str]
     start_date: str
     end_date: str
-    language: Optional[str] = None  # 🔄 Optionnel aussi
+    default_language: Optional[str] = "fr"
 
 class EditTimeseriesRequest(BaseModel):
     pages: List[str]
     start_date: str
     end_date: str
-    language: Optional[str] = None  # 🔄 Optionnel aussi
     editor_type: str = "user"  # "user" ou "all"
+    default_language: Optional[str] = "fr"
 
 class TaskResponse(BaseModel):
     task_id: str
     status: str
     estimated_time: Optional[int] = None
-    detected_language: Optional[str] = None  # 🆕 Nouveau champ
+    languages: Dict[str, int] = {}  # répartition par langue (ex: {"fr": 3, "en": 2})
 
-# Stockage temporaire des tâches (en production: Redis/DB)
-tasks_storage = {}
+# ────────────────────────────────────────────────────────────────────
+# Stockage in-memory des tâches (prod: Redis/DB)
+# ────────────────────────────────────────────────────────────────────
+tasks_storage: Dict[str, Dict[str, Any]] = {}
 
 def update_task_status(task_id: str, status: str, results: dict = None, error: str = None):
-    """Met à jour le statut d'une tâche"""
     if task_id in tasks_storage:
         tasks_storage[task_id]["status"] = status
         tasks_storage[task_id]["updated_at"] = datetime.now()
-        
-        if results:
+        if results is not None:
             tasks_storage[task_id]["results"] = results
-        if error:
+        if error is not None:
             tasks_storage[task_id]["error"] = error
 
-async def run_analysis_background(task_id: str, request_data: dict):
-    """Lance l'analyse en arrière-plan avec détection automatique de langue"""
+# ────────────────────────────────────────────────────────────────────
+# Utilitaires multi-lang (s’appuient sur le nouveau pipeline)
+# ────────────────────────────────────────────────────────────────────
+def prepare_pages_and_languages(pages: List[str], default_language: str = "fr"):
+    """
+    Retourne:
+      - page_infos: list[PageInfo] (original_input, clean_title, language, unique_key)
+      - lang_counts: dict[str, int]
+      - grouped: dict[lang, list[PageInfo]]
+    """
     try:
-        logger.info(f"Début de l'analyse pour la tâche {task_id}")
+        from wikimetron.metrics.pipeline import (
+            prepare_pages_with_languages,
+            group_pages_by_language,
+        )
+    except ImportError:
+        # fallback minimal si import impossible
+        def naive_detect(url: str):
+            import re
+            m = re.search(r"https?://([a-z]{2})\.wikipedia\.org", url or "")
+            return m.group(1) if m else None
+
+        page_infos = []
+        from dataclasses import dataclass
+
+        @dataclass
+        class PageInfoLocal:
+            original_input: str
+            clean_title: str
+            language: str
+            unique_key: str
+
+        from urllib.parse import urlparse, unquote
+        for p in pages:
+            lang = naive_detect(p) or default_language
+            title = p
+            try:
+                if isinstance(p, str) and p.startswith("http"):
+                    parsed = urlparse(p)
+                    if "wikipedia.org" in parsed.netloc and "/wiki/" in parsed.path:
+                        raw = parsed.path.split("/wiki/")[1]
+                        title = unquote(raw.replace("_", " "))
+            except Exception:
+                pass
+            page_infos.append(PageInfoLocal(
+                original_input=p,
+                clean_title=title,
+                language=lang,
+                unique_key=f"{title}___{lang}"
+            ))
+        grouped: Dict[str, List[PageInfoLocal]] = {}
+        for pi in page_infos:
+            grouped.setdefault(pi.language, []).append(pi)
+        from collections import Counter
+        lang_counts = dict(Counter([pi.language for pi in page_infos]))
+        return page_infos, lang_counts, grouped
+
+    page_infos = prepare_pages_with_languages(pages, default_language)
+    grouped = group_pages_by_language(page_infos)
+    from collections import Counter
+    lang_counts = dict(Counter([p.language for p in page_infos]))
+    return page_infos, lang_counts, grouped
+
+# ────────────────────────────────────────────────────────────────────
+# Background Runner — utilise le wrapper multi-lang
+# ────────────────────────────────────────────────────────────────────
+async def run_analysis_background(task_id: str, request_data: dict):
+    try:
+        logger.info(f"Début analyse (task={task_id})")
         update_task_status(task_id, "running")
-        
-        # Import du pipeline avec détection automatique
-        from wikimetron.metrics.pipeline import compute_scores_for_api
-        
-        # Extraire les paramètres
+
+        from wikimetron.metrics.pipeline import compute_scores_for_api_multilang
+
         pages = request_data.get("pages", [])
         start_date = request_data.get("start_date")
         end_date = request_data.get("end_date")
-        language = request_data.get("language")  # Peut être None pour détection auto
-        
-        # 🆕 Lancer l'analyse avec détection automatique
-        results = compute_scores_for_api(pages, start_date, end_date, language)
-        
-        # Mettre à jour avec les résultats
-        update_task_status(task_id, "completed", results=results)
-        logger.info(f"Analyse terminée avec succès pour la tâche {task_id}")
-        
-    except Exception as e:
-        error_msg = f"Erreur lors de l'analyse: {str(e)}"
-        logger.error(f"Erreur dans la tâche {task_id}: {error_msg}")
-        logger.error(traceback.format_exc())
-        update_task_status(task_id, "error", error=error_msg)
+        default_language = request_data.get("default_language", "fr")
 
-def detect_language_from_request(pages: List[str], requested_language: Optional[str] = None) -> str:
-    """
-    Détermine la langue à utiliser : soit celle demandée, soit détection automatique
-    """
-    logger.info(f"🔍 === DEBUG detect_language_from_request ===")
-    logger.info(f"📄 Pages reçues: {pages}")
-    logger.info(f"📄 Type des pages: {[type(p) for p in pages]}")
-    logger.info(f"🌐 Langue demandée: {requested_language}")
-    
-    if requested_language:
-        logger.info(f"✅ Langue forcée par l'utilisateur: {requested_language}")
-        return requested_language
-    
-    # Import de la fonction de détection
-    try:
-        logger.info(f"📦 Tentative d'import detect_language_from_pages...")
-        from wikimetron.metrics.pipeline import detect_language_from_pages
-        logger.info(f"✅ Import detect_language_from_pages: OK")
-        
-        logger.info(f"🔧 Appel detect_language_from_pages avec: {pages}")
-        detected = detect_language_from_pages(pages)
-        logger.info(f"🎯 Résultat detect_language_from_pages: {detected}")
-        
-        logger.info(f"✅ Langue détectée automatiquement: {detected}")
-        logger.info(f"🔍 === FIN DEBUG detect_language_from_request ===")
-        return detected
-        
-    except ImportError as e:
-        logger.error(f"❌ Erreur d'import detect_language_from_pages: {e}")
-        fallback = "fr"
-        logger.info(f"🔄 Fallback sur: {fallback}")
-        return fallback
-        
+        # Appel du NOUVEAU wrapper multi-langues
+        results = compute_scores_for_api_multilang(
+            pages=pages,
+            start_date=start_date,
+            end_date=end_date,
+            default_language=default_language,
+        )
+
+        update_task_status(task_id, "completed", results=results)
+        logger.info(f"Analyse terminée (task={task_id})")
     except Exception as e:
-        logger.error(f"❌ Erreur dans detect_language_from_pages: {e}")
-        logger.error(f"📚 Traceback complet:")
+        logger.error(f"Erreur task {task_id}: {e}")
         logger.error(traceback.format_exc())
-        
-        # 🔧 TENTATIVE DE DÉTECTION MANUELLE EN CAS D'ERREUR
-        logger.info(f"🔧 Tentative de détection manuelle...")
-        
-        for page in pages:
-            logger.info(f"🔍 Analyse de la page: '{page}'")
-            if isinstance(page, str) and "wikipedia.org" in page:
-                try:
-                    import re
-                    match = re.search(r'https?://([a-z]{2})\.wikipedia\.org', page)
-                    if match:
-                        manual_lang = match.group(1)
-                        logger.info(f"✅ Langue extraite manuellement: {manual_lang}")
-                        return manual_lang
-                    else:
-                        logger.info(f"❌ Pas de match regex pour: {page}")
-                except Exception as manual_error:
-                    logger.error(f"❌ Erreur extraction manuelle: {manual_error}")
-            else:
-                logger.info(f"❌ Pas une URL Wikipedia: {page}")
-        
-        fallback = "fr"
-        logger.info(f"🔄 Fallback final sur: {fallback}")
-        return fallback
+        update_task_status(task_id, "error", error=str(e))
+
+# ────────────────────────────────────────────────────────────────────
+# Routes basiques
+# ────────────────────────────────────────────────────────────────────
 @app.get("/")
 async def root():
     return {
-        "message": "Wikimetron API with Auto Language Detection",
-        "version": "1.1.0",
+        "message": "Wikimetron API (multi-language per-page)",
+        "version": "2.0.0",
         "docs": "/docs",
         "status": "operational",
         "features": [
-            "Automatic language detection from Wikipedia URLs",
-            "Multi-language support",
+            "Per-page language detection",
+            "Mixed-language inputs in one request",
             "Parallel metrics computation",
-            "Real-time timeseries data"
-        ]
+            "Heat/Quality/Risk + unique_key",
+            "Timeseries endpoints grouping by language",
+        ],
     }
 
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
-# ═══════════════════════════════════════════════════════════════════════
-# ENDPOINTS PRINCIPAUX ADAPTÉS
-# ═══════════════════════════════════════════════════════════════════════
-
+# ────────────────────────────────────────────────────────────────────
+# ENDPOINTS PRINCIPAUX (multi-lang)
+# ────────────────────────────────────────────────────────────────────
 @app.post("/api/analyze", response_model=TaskResponse)
 async def analyze_pages(request: AnalyzeRequest, background_tasks: BackgroundTasks):
-    """Lance une analyse Wikipedia avec détection automatique de langue"""
-    
-    # Validation
     if not request.pages:
         raise HTTPException(status_code=400, detail="Au moins une page est requise")
-    
     if len(request.pages) > 50:
         raise HTTPException(status_code=400, detail="Maximum 50 pages par analyse")
-    
-    # 🆕 Détection automatique de langue
-    try:
-        detected_language = detect_language_from_request(request.pages, request.language)
-    except Exception as e:
-        logger.warning(f"Erreur lors de la détection de langue: {e}")
-        detected_language = request.language or "fr"  # Fallback
-    
-    # Créer une tâche
+
+    # Détecter et résumer les langues par page
+    _, lang_counts, _ = prepare_pages_and_languages(request.pages, request.default_language)
+
     task_id = str(uuid.uuid4())
     tasks_storage[task_id] = {
         "status": "queued",
         "created_at": datetime.now(),
         "updated_at": datetime.now(),
         "pages": request.pages,
-        "detected_language": detected_language,  # 🆕 Stockage de la langue détectée
-        "request": request.dict()
+        "languages": lang_counts,
+        "request": request.dict(),
     }
-    
-    # Mettre à jour la requête avec la langue détectée
-    request_dict = request.dict()
-    request_dict["language"] = detected_language
-    
-    # Lancer l'analyse en arrière-plan
-    background_tasks.add_task(run_analysis_background, task_id, request_dict)
-    
-    logger.info(f"Tâche {task_id} créée pour {len(request.pages)} pages (langue: {detected_language})")
-    
+
+    # Lancer l’analyse multi-lang en arrière-plan
+    background_tasks.add_task(run_analysis_background, task_id, request.dict())
+
+    logger.info(f"Tâche {task_id} créée: {len(request.pages)} pages / langues={lang_counts}")
     return TaskResponse(
         task_id=task_id,
         status="queued",
         estimated_time=len(request.pages) * 10,
-        detected_language=detected_language  # 🆕 Retour de la langue détectée
+        languages=lang_counts,
     )
 
+# ────────────────────────────────────────────────────────────────────
+# Timeseries: Pageviews (multi-lang)
+# ────────────────────────────────────────────────────────────────────
 @app.post("/api/pageviews")
 async def get_pageviews_timeseries(request: PageviewsRequest):
-    """Récupère les données de pageviews avec détection automatique de langue"""
-    
     try:
-        # 🆕 Détection automatique de langue
-        detected_language = detect_language_from_request(request.pages, request.language)
-        logger.info(f"Récupération pageviews pour {len(request.pages)} pages (langue: {detected_language})")
-        
-        # Validation
         if not request.pages:
             raise HTTPException(status_code=400, detail="Au moins une page est requise")
-        
         if len(request.pages) > 20:
             raise HTTPException(status_code=400, detail="Maximum 20 pages pour les graphiques")
-        
-        # Import de la fonction pageviews
+
         from wikimetron.metrics.pageviews import get_pageviews_timeseries
-        
-        # 🔄 Utiliser la langue détectée
-        timeseries_data = get_pageviews_timeseries(
-            request.pages, 
-            request.start_date, 
-            request.end_date, 
-            detected_language  # Langue détectée au lieu de request.language
-        )
-        
-        # Convertir les données pour le graphique (même logique qu'avant)
-        chart_data = []
+
+        page_infos, lang_counts, grouped = prepare_pages_and_languages(request.pages, request.default_language)
+
+        # mapping original -> PageInfo
+        orig_to_pi = {pi.original_input: pi for pi in page_infos}
+
+        # Récupération timeseries par langue (sur titres nettoyés)
+        per_page_series: Dict[str, pd.Series] = {}
+        for lang, pis in grouped.items():
+            titles = [pi.clean_title for pi in pis]
+            if not titles:
+                continue
+            lang_ts = get_pageviews_timeseries(
+                titles,
+                request.start_date,
+                request.end_date,
+                lang,
+            )
+            # Remapper vers clé "original_input"
+            for pi in pis:
+                s = lang_ts.get(pi.clean_title, pd.Series(dtype="int64"))
+                per_page_series[pi.original_input] = s
+
+        # Construire la grille de dates
         all_dates = set()
-        
-        # Collecter toutes les dates disponibles
-        for page, series in timeseries_data.items():
-            if not series.empty:
-                all_dates.update(series.index.strftime('%Y-%m-%d'))
-        
-        # Créer une liste triée de dates
-        sorted_dates = sorted(list(all_dates))
-        
-        # Construire les données pour le graphique
-        for date_str in sorted_dates:
-            data_point = {"date": date_str}
-            
-            for page, series in timeseries_data.items():
-                try:
-                    date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
-                    date_index = pd.to_datetime(date_obj)
-                    
-                    if date_index in series.index:
-                        data_point[page] = int(series.loc[date_index])
-                    else:
-                        data_point[page] = 0
-                except:
-                    data_point[page] = 0
-            
-            chart_data.append(data_point)
-        
-        # Préparer les métadonnées avec langue détectée
+        for s in per_page_series.values():
+            if not s.empty:
+                all_dates.update(pd.to_datetime(s.index).strftime("%Y-%m-%d"))
+        sorted_dates = sorted(all_dates)
+
+        chart_data = []
+        for d in sorted_dates:
+            row = {"date": d}
+            for original in request.pages:
+                s = per_page_series.get(original, pd.Series(dtype="int64"))
+                val = 0
+                if not s.empty:
+                    idx = pd.to_datetime(d)
+                    if idx in s.index:
+                        try:
+                            val = int(s.loc[idx])
+                        except Exception:
+                            val = int(s.loc[idx].item())
+                row[original] = val
+            chart_data.append(row)
+
+        # Statistiques par page
         pages_metadata = {}
-        for page, series in timeseries_data.items():
-            if not series.empty:
-                pages_metadata[page] = {
-                    "total_views": int(series.sum()),
-                    "avg_views": round(series.mean(), 2),
-                    "max_views": int(series.max()),
-                    "data_points": len(series)
-                }
+        for original in request.pages:
+            s = per_page_series.get(original, pd.Series(dtype="int64"))
+            if s is None or s.empty:
+                pages_metadata[original] = {"total_views": 0, "avg_views": 0, "max_views": 0, "data_points": 0}
             else:
-                pages_metadata[page] = {
-                    "total_views": 0,
-                    "avg_views": 0,
-                    "max_views": 0,
-                    "data_points": 0
+                pages_metadata[original] = {
+                    "total_views": int(s.sum()),
+                    "avg_views": round(float(s.mean()), 2),
+                    "max_views": int(s.max()),
+                    "data_points": int(s.shape[0]),
                 }
-        
-        result = {
+
+        return {
             "success": True,
             "data": chart_data,
             "metadata": {
                 "pages": request.pages,
                 "start_date": request.start_date,
                 "end_date": request.end_date,
-                "requested_language": request.language,  # 🆕 Langue demandée
-                "detected_language": detected_language,   # 🆕 Langue détectée
+                "languages_summary": lang_counts,
+                "default_language": request.default_language,
                 "total_points": len(chart_data),
-                "pages_stats": pages_metadata
-            }
+                "pages_stats": pages_metadata,
+            },
         }
-        
-        logger.info(f"Pageviews récupérées: {len(chart_data)} points de données")
-        return result
-        
     except Exception as e:
         logger.error(f"Erreur pageviews: {e}")
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des pageviews: {str(e)}")
 
+# ────────────────────────────────────────────────────────────────────
+# Timeseries: Edits (multi-lang)
+# ────────────────────────────────────────────────────────────────────
 @app.post("/api/edit-timeseries")
 async def get_edit_timeseries(request: EditTimeseriesRequest):
-    """Récupère les données d'éditions avec détection automatique de langue"""
-    
     try:
-        # 🆕 Détection automatique de langue
-        detected_language = detect_language_from_request(request.pages, request.language)
-        logger.info(f"Récupération données éditions pour {len(request.pages)} pages (langue: {detected_language})")
-        
-        # Validation
         if not request.pages:
             raise HTTPException(status_code=400, detail="Au moins une page est requise")
-        
         if len(request.pages) > 20:
             raise HTTPException(status_code=400, detail="Maximum 20 pages pour les graphiques")
-        
-        # Import du module edit
+
         from wikimetron.metrics.edit import EditProcessor
-        
-        # Conversion des dates
-        start_date = datetime.strptime(request.start_date, '%Y-%m-%d')
-        end_date = datetime.strptime(request.end_date, '%Y-%m-%d')
-        
-        # 🔄 Créer le processeur avec la langue détectée
-        processor = EditProcessor(detected_language, request.editor_type)
-        
-        # Récupérer les données pour chaque page (même logique qu'avant)
-        edit_data = {}
-        pages_metadata = {}
-        
-        for page in request.pages:
-            try:
-                logger.info(f"Traitement des éditions pour {page}")
-                
-                daily_counts = processor.fetch_daily_edits_optimized(page, start_date, end_date)
-                edit_data[page] = daily_counts
-                
-                total_edits = sum(daily_counts)
-                max_edits = max(daily_counts) if daily_counts else 0
-                avg_edits = total_edits / len(daily_counts) if daily_counts else 0
-                
-                pages_metadata[page] = {
-                    "total_edits": total_edits,
-                    "avg_edits": round(avg_edits, 2),
-                    "max_edits": max_edits,
-                    "data_points": len(daily_counts)
-                }
-                
-            except Exception as e:
-                logger.error(f"Erreur pour {page}: {e}")
-                num_days = (end_date - start_date).days + 1
-                edit_data[page] = [0] * num_days
-                pages_metadata[page] = {
-                    "total_edits": 0,
-                    "avg_edits": 0,
-                    "max_edits": 0,
-                    "data_points": num_days,
-                    "error": str(e)
-                }
-        
-        # Construire les données pour le graphique (même logique qu'avant)
+
+        page_infos, lang_counts, grouped = prepare_pages_and_languages(request.pages, request.default_language)
+        # mapping original -> PageInfo
+        orig_to_pi = {pi.original_input: pi for pi in page_infos}
+
+        start_date = datetime.strptime(request.start_date, "%Y-%m-%d")
+        end_date = datetime.strptime(request.end_date, "%Y-%m-%d")
+
+        # Récupération des séries par langue
+        per_page_daily: Dict[str, List[int]] = {}
+        for lang, pis in grouped.items():
+            processor = EditProcessor(lang, request.editor_type)
+            for pi in pis:
+                try:
+                    daily = processor.fetch_daily_edits_optimized(pi.clean_title, start_date, end_date)
+                    per_page_daily[pi.original_input] = list(map(int, daily))
+                except Exception as e:
+                    logger.warning(f"Échec éditions pour {pi.original_input} ({lang}): {e}")
+                    num_days = (end_date - start_date).days + 1
+                    per_page_daily[pi.original_input] = [0] * num_days
+
+        # Construire chart_data
         chart_data = []
         current_date = start_date
-        date_index = 0
-        
-        while current_date <= end_date:
-            data_point = {
-                "date": current_date.strftime('%Y-%m-%d')
-            }
-            
-            for page in request.pages:
-                daily_counts = edit_data.get(page, [])
-                if date_index < len(daily_counts):
-                    data_point[page] = daily_counts[date_index]
-                else:
-                    data_point[page] = 0
-            
-            chart_data.append(data_point)
+        idx = 0
+        num_days = (end_date - start_date).days + 1
+        while idx < num_days:
+            point = {"date": current_date.strftime("%Y-%m-%d")}
+            for original in request.pages:
+                series = per_page_daily.get(original, [])
+                point[original] = int(series[idx]) if idx < len(series) else 0
+            chart_data.append(point)
             current_date += timedelta(days=1)
-            date_index += 1
-        
-        # Préparer la réponse avec langue détectée
-        result = {
+            idx += 1
+
+        # Stats par page
+        pages_metadata = {}
+        for original in request.pages:
+            series = per_page_daily.get(original, [])
+            total_edits = int(sum(series)) if series else 0
+            max_edits = int(max(series)) if series else 0
+            avg_edits = float(total_edits / len(series)) if series else 0.0
+            pages_metadata[original] = {
+                "total_edits": total_edits,
+                "avg_edits": round(avg_edits, 2),
+                "max_edits": max_edits,
+                "data_points": len(series),
+            }
+
+        return {
             "success": True,
             "data": chart_data,
             "metadata": {
                 "pages": request.pages,
                 "start_date": request.start_date,
                 "end_date": request.end_date,
-                "requested_language": request.language,    # 🆕 Langue demandée
-                "detected_language": detected_language,     # 🆕 Langue détectée
+                "languages_summary": lang_counts,
+                "default_language": request.default_language,
                 "editor_type": request.editor_type,
                 "total_points": len(chart_data),
-                "pages_stats": pages_metadata
-            }
+                "pages_stats": pages_metadata,
+            },
         }
-        
-        logger.info(f"Données éditions récupérées: {len(chart_data)} points de données")
-        return result
-        
     except Exception as e:
         logger.error(f"Erreur éditions: {e}")
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des données d'éditions: {str(e)}")
 
-# ═══════════════════════════════════════════════════════════════════════
-# ENDPOINTS DE GESTION DES TÂCHES
-# ═══════════════════════════════════════════════════════════════════════
-
+# ────────────────────────────────────────────────────────────────────
+# Gestion des tâches
+# ────────────────────────────────────────────────────────────────────
 @app.get("/api/tasks/{task_id}")
 async def get_task_status(task_id: str):
-    """Récupère le statut d'une tâche avec info sur la langue détectée"""
-    
     if task_id not in tasks_storage:
         raise HTTPException(status_code=404, detail="Tâche non trouvée")
-    
     task = tasks_storage[task_id].copy()
-    
-    # Convertir les dates en string pour JSON
     if "created_at" in task:
         task["created_at"] = task["created_at"].isoformat()
     if "updated_at" in task:
         task["updated_at"] = task["updated_at"].isoformat()
-    
     return task
 
 @app.get("/api/tasks")
 async def list_tasks():
-    """Liste toutes les tâches avec info sur les langues détectées"""
     return {
         "tasks": [
             {
                 "task_id": tid,
-                "status": task["status"],
-                "created_at": task["created_at"].isoformat(),
-                "updated_at": task.get("updated_at", task["created_at"]).isoformat(),
-                "pages_count": len(task.get("pages", [])),
-                "detected_language": task.get("detected_language", "unknown")  # 🆕 Info langue
+                "status": t["status"],
+                "created_at": t["created_at"].isoformat(),
+                "updated_at": t.get("updated_at", t["created_at"]).isoformat(),
+                "pages_count": len(t.get("pages", [])),
+                "languages": t.get("languages", {}),
             }
-            for tid, task in tasks_storage.items()
+            for tid, t in tasks_storage.items()
         ]
     }
 
-# ═══════════════════════════════════════════════════════════════════════
-# NOUVEAUX ENDPOINTS POUR LA DÉTECTION DE LANGUE
-# ═══════════════════════════════════════════════════════════════════════
-
+# ────────────────────────────────────────────────────────────────────
+# Détection de langue (multi-lang)
+# ────────────────────────────────────────────────────────────────────
 @app.post("/api/detect-language")
-async def detect_language_endpoint(pages: List[str]):
-    """🆕 Endpoint dédié pour détecter la langue d'une liste de pages"""
+async def detect_language_endpoint(pages: List[str], default_language: str = "fr"):
     try:
         if not pages:
             raise HTTPException(status_code=400, detail="Au moins une page est requise")
-        
-        # Import des fonctions de détection
-        from wikimetron.metrics.pipeline import detect_language_from_pages, extract_clean_title_and_language
-        
-        detected_language = detect_language_from_pages(pages)
-        
-        # Analyse détaillée par page
+
+        # Utilise les helpers du nouveau pipeline
+        try:
+            from wikimetron.metrics.pipeline import extract_clean_title_and_language, prepare_pages_with_languages, group_pages_by_language
+            page_infos = prepare_pages_with_languages(pages, default_language)
+            grouped = group_pages_by_language(page_infos)
+        except Exception:
+            # fallback sur utilitaire local
+            page_infos, _, grouped = prepare_pages_and_languages(pages, default_language)
+
         page_analysis = []
-        for page in pages:
-            clean_title, page_lang = extract_clean_title_and_language(page)
+        for pi in page_infos:
             page_analysis.append({
-                "original": page,
-                "clean_title": clean_title,
-                "detected_language": page_lang,
-                "is_url": page.startswith("http")
+                "original": pi.original_input,
+                "clean_title": pi.clean_title,
+                "detected_language": pi.language,
+                "unique_key": pi.unique_key,
+                "is_url": isinstance(pi.original_input, str) and pi.original_input.startswith("http"),
             })
-        
+
+        from collections import Counter
+        lang_counts = dict(Counter([pi.language for pi in page_infos]))
+
         return {
-            "detected_language": detected_language,
-            "page_analysis": page_analysis,
+            "languages_summary": lang_counts,
+            "pages": page_analysis,
             "summary": {
                 "total_pages": len(pages),
-                "urls_count": len([p for p in pages if p.startswith("http")]),
-                "titles_count": len([p for p in pages if not p.startswith("http")])
-            }
+                "urls_count": len([p for p in pages if isinstance(p, str) and p.startswith("http")]),
+                "titles_count": len([p for p in pages if not (isinstance(p, str) and p.startswith("http"))]),
+                "default_language": default_language,
+            },
         }
-        
     except Exception as e:
         logger.error(f"Erreur détection langue: {e}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la détection: {str(e)}")
 
+# ────────────────────────────────────────────────────────────────────
+# Langues supportées
+# ────────────────────────────────────────────────────────────────────
 @app.get("/api/supported-languages")
 async def get_supported_languages():
-    """🆕 Liste des langues Wikipedia supportées"""
     return {
         "supported_languages": [
-            {"code": "fr", "name": "Français", "wikipedia": "fr.wikipedia.org"},
-            {"code": "en", "name": "English", "wikipedia": "en.wikipedia.org"},
-            {"code": "de", "name": "Deutsch", "wikipedia": "de.wikipedia.org"},
-            {"code": "es", "name": "Español", "wikipedia": "es.wikipedia.org"},
-            {"code": "it", "name": "Italiano", "wikipedia": "it.wikipedia.org"},
-            {"code": "pt", "name": "Português", "wikipedia": "pt.wikipedia.org"},
-            {"code": "ru", "name": "Русский", "wikipedia": "ru.wikipedia.org"},
-            {"code": "ja", "name": "日本語", "wikipedia": "ja.wikipedia.org"},
-            {"code": "zh", "name": "中文", "wikipedia": "zh.wikipedia.org"},
-            {"code": "ar", "name": "العربية", "wikipedia": "ar.wikipedia.org"}
-        ],
+            {"code": "en", "name": "English", "wikipedia": "en.wikipedia.org", "talk": "Talk"},
+            {"code": "fr", "name": "Français", "wikipedia": "fr.wikipedia.org", "talk": "Discussion"},
+            {"code": "de", "name": "Deutsch", "wikipedia": "de.wikipedia.org", "talk": "Diskussion"},
+            {"code": "it", "name": "Italiano", "wikipedia": "it.wikipedia.org", "talk": "Discussione"},
+            {"code": "es", "name": "Español", "wikipedia": "es.wikipedia.org", "talk": "Discusión"},
+            {"code": "ca", "name": "Català", "wikipedia": "ca.wikipedia.org", "talk": "Discussió"},
+            {"code": "pt", "name": "Português", "wikipedia": "pt.wikipedia.org", "talk": "Discussão"},
+            {"code": "et", "name": "Eesti", "wikipedia": "et.wikipedia.org", "talk": "Arutelu"},
+            {"code": "lv", "name": "Latviešu", "wikipedia": "lv.wikipedia.org", "talk": "Diskusija"},
+            {"code": "lt", "name": "Lietuvių", "wikipedia": "lt.wikipedia.org", "talk": "Aptarimas"},
+            {"code": "ro", "name": "Română", "wikipedia": "ro.wikipedia.org", "talk": "Discuție"},
+            {"code": "uk", "name": "Українська", "wikipedia": "uk.wikipedia.org", "talk": "Обговорення"},
+            {"code": "be", "name": "беларуская", "wikipedia": "be.wikipedia.org", "talk": "Размовы"},
+            {"code": "ru", "name": "Русский", "wikipedia": "ru.wikipedia.org", "talk": "Обсуждение"},
+            {"code": "nl", "name": "Nederlands", "wikipedia": "nl.wikipedia.org", "talk": "Overleg"},
+            {"code": "da", "name": "Dansk", "wikipedia": "da.wikipedia.org", "talk": "Diskussion"},
+            {"code": "sv", "name": "Svenska", "wikipedia": "sv.wikipedia.org", "talk": "Diskussion"},
+            {"code": "no", "name": "Norsk", "wikipedia": "no.wikipedia.org", "talk": "Diskusjon"},
+            {"code": "fi", "name": "Suomi", "wikipedia": "fi.wikipedia.org", "talk": "Etusivu"},
+            {"code": "is", "name": "Íslenska", "wikipedia": "is.wikipedia.org", "talk": "Spjall"},
+            {"code": "pl", "name": "Polski", "wikipedia": "pl.wikipedia.org", "talk": "Dyskusja"},
+            {"code": "hu", "name": "Magyar", "wikipedia": "hu.wikipedia.org", "talk": "Vita"},
+            {"code": "cs", "name": "Čeština", "wikipedia": "cs.wikipedia.org", "talk": "Diskuse"},
+            {"code": "sk", "name": "Slovenčina", "wikipedia": "sk.wikipedia.org", "talk": "Diskusia"},
+            {"code": "bg", "name": "Български", "wikipedia": "bg.wikipedia.org", "talk": "Беседа"},
+            {"code": "sr", "name": "Српски", "wikipedia": "sr.wikipedia.org", "talk": "Разговор"},
+            {"code": "sh", "name": "Srpskohrvatski", "wikipedia": "sh.wikipedia.org", "talk": "Razgovor"},
+            {"code": "hr", "name": "Hrvatski", "wikipedia": "hr.wikipedia.org", "talk": "Razgovor"},
+            {"code": "bs", "name": "Bosanski", "wikipedia": "bs.wikipedia.org", "talk": "Razgovor"},
+            {"code": "mk", "name": "македонски", "wikipedia": "mk.wikipedia.org", "talk": "Разговор"},
+            {"code": "sl", "name": "Slovenščina", "wikipedia": "sl.wikipedia.org", "talk": "Diskusija"},
+            {"code": "sq", "name": "Shqip", "wikipedia": "sq.wikipedia.org", "talk": "Diskutim"},
+            {"code": "el", "name": "Ελληνικά", "wikipedia": "el.wikipedia.org", "talk": "Συζήτηση"},
+            {"code": "tr", "name": "Türkçe", "wikipedia": "tr.wikipedia.org", "talk": "Tartışma"},
+            {"code": "ka", "name": "ქართული", "wikipedia": "ka.wikipedia.org", "talk": "განხილვა"},
+            {"code": "hy", "name": "հայերեն", "wikipedia": "hy.wikipedia.org", "talk": "Քննարկում"},
+            {"code": "he", "name": "עברית", "wikipedia": "he.wikipedia.org", "talk": "שיחה"},
+            {"code": "ar", "name": "العربية", "wikipedia": "ar.wikipedia.org", "talk": "نقاش"},
+            {"code": "arz", "name": "مصرى", "wikipedia": "arz.wikipedia.org", "talk": "نقاش"},
+            {"code": "fa", "name": "فارسی", "wikipedia": "fa.wikipedia.org", "talk": "بحث"},
+            {"code": "hi", "name": "हिन्दी", "wikipedia": "hi.wikipedia.org", "talk": "वार्ता"},
+            {"code": "id", "name": "Bahasa Indonesia", "wikipedia": "id.wikipedia.org", "talk": "Pembicaraan"},
+            {"code": "ceb", "name": "Cebuano", "wikipedia": "ceb.wikipedia.org", "talk": "Hisgot"},
+            {"code": "zh", "name": "中文", "wikipedia": "zh.wikipedia.org", "talk": "Talk"},
+            {"code": "ja", "name": "日本語", "wikipedia": "ja.wikipedia.org", "talk": "ノート"}
+        ]
+    ,
         "auto_detection": {
             "enabled": True,
             "fallback_language": "fr",
-            "description": "Language is automatically detected from Wikipedia URLs. If no URLs provided or detection fails, fallback language is used."
-        }
+            "description": "Language is detected per page from Wikipedia URLs/titles; fallback applies only when missing.",
+        },
     }
 
-# ═══════════════════════════════════════════════════════════════════════
-# ENDPOINTS DE TEST ET DEBUG
-# ═══════════════════════════════════════════════════════════════════════
-
+# ────────────────────────────────────────────────────────────────────
+# Test pipeline — multi-lang
+# ────────────────────────────────────────────────────────────────────
 @app.post("/api/test-pipeline")
 async def test_pipeline():
-    """Test rapide du pipeline avec détection automatique"""
     try:
-        from wikimetron.metrics.pipeline import compute_scores_for_api
-        
-        # Test avec URLs mixtes pour tester la détection automatique
+        from wikimetron.metrics.pipeline import compute_scores_for_api_multilang
+
         test_pages = [
             "https://fr.wikipedia.org/wiki/France",
-            "https://fr.wikipedia.org/wiki/Paris"
+            "https://en.wikipedia.org/wiki/Germany",
+            "https://de.wikipedia.org/wiki/Paris",
+            "Berlin",  # pas d’URL → prendra default_language
         ]
-        
-        results = compute_scores_for_api(test_pages, "2024-01-01", "2024-12-31")  # language=None
-        
+
+        results = compute_scores_for_api_multilang(
+            test_pages, "2024-01-01", "2024-12-31", default_language="fr"
+        )
+
+        # petit résumé des langues à partir du payload retourné
+        languages_summary = results.get("summary", {}).get("languages", {})
+
         return {
-            "status": "success", 
+            "status": "success",
             "results": results,
             "test_info": {
                 "pages_tested": test_pages,
-                "auto_detection": "enabled",
-                "detected_language": results.get("summary", {}).get("language", "unknown")
-            }
+                "languages_summary": languages_summary,
+                "wrapper": "compute_scores_for_api_multilang",
+            },
         }
-        
     except Exception as e:
         logger.error(f"Erreur test pipeline: {e}")
-        return {
-            "status": "error", 
-            "error": str(e), 
-            "traceback": traceback.format_exc()
-        }
+        return {"status": "error", "error": str(e), "traceback": traceback.format_exc()}
 
+# ────────────────────────────────────────────────────────────────────
+# Entrypoint
+# ────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
