@@ -661,6 +661,56 @@ def compute_scores(
 
     return ScoringResult(heat, quality, risk, sensitivity, heat_raw, quality_raw, risk_raw), metrics
 
+
+import pandas as pd
+from dateutil.relativedelta import relativedelta
+from datetime import datetime
+
+def daterange_months(start_date: str, end_date: str) -> list[tuple[str, str]]:
+    """
+    Découpe la période start_date -> end_date en intervalles mensuels.
+    Renvoie une liste de tuples (month_start, month_end) en format 'YYYY-MM-DD'.
+    """
+    intervals = []
+    start = pd.to_datetime(start_date)
+    end = pd.to_datetime(end_date)
+
+    while start < end:
+        month_end = (start + relativedelta(months=1)) - pd.Timedelta(days=1)
+        month_end = min(month_end, end)
+        intervals.append((start.strftime("%Y-%m-%d"), month_end.strftime("%Y-%m-%d")))
+        start = month_end + pd.Timedelta(days=1)
+    return intervals
+
+def compute_scores_monthly(pages: list[str], start_date: str, end_date: str, default_lang: str = "fr", max_workers: int = MAX_WORKERS, output_csv: str = "scores_monthly.csv"):
+    """
+    Calcule les scores pour chaque mois de la période et les agrège dans un DataFrame.
+    """
+    monthly_intervals = daterange_months(start_date, end_date)
+    all_data = []
+
+    for month_start, month_end in monthly_intervals:
+        print(f"→ Analyse du mois: {month_start} → {month_end}")
+        scores, metrics, page_infos = compute_scores_multilang(pages, month_start, month_end, default_lang, max_workers)
+
+        for page_info in page_infos:
+            uk = page_info.unique_key
+            all_data.append({
+                "title": page_info.clean_title,
+                "url" : page_info.original_input,
+                "langue": page_info.language,
+                "month_start": month_start,
+                "month_end": month_end,
+                "heat": scores.heat.get(uk, 0.0),
+                "quality": scores.quality.get(uk, 0.0),
+                "risk": scores.risk.get(uk, 0.0),
+                "sensitivity": scores.sensitivity.get(uk, 0.0),
+            })
+
+    df_monthly = pd.DataFrame(all_data).round(3)
+    df_monthly.to_csv(output_csv, index=False)
+    print(f"✅ Scores mensuels sauvegardés dans '{output_csv}'")
+    return df_monthly
 # ─────────────────────────────────────────────────────────────────────────────────────────
 # CLI
 # ─────────────────────────────────────────────────────────────────────────────────────────
@@ -675,6 +725,8 @@ if __name__ == "__main__":
     ap.add_argument("--default-lang", default="fr", help="Langue par défaut")
     ap.add_argument("--workers", type=int, default=MAX_WORKERS, help="Workers parallèles")
     ap.add_argument("--verbose", "-v", action="store_true", help="Mode verbose")
+    ap.add_argument("--monthly", action="store_true", help="Calcul mensuel sur la période")
+    ap.add_argument("--output", default="scores_monthly.csv", help="Fichier CSV de sortie pour le mode mensuel")
 
     args = ap.parse_args()
 
@@ -682,41 +734,46 @@ if __name__ == "__main__":
         logging.getLogger().setLevel(logging.DEBUG)
 
     try:
-        scores, detail, page_infos = compute_scores_multilang(
-            args.pages, args.start, args.end, args.default_lang, args.workers
-        )
-
-        print("\n" + "=" * 60)
-        print(f"RAPPORT MULTI-LANGUES V2 - {len(args.pages)} pages analysées")
-        print("=" * 60)
-
-        # Affichage par langue
-        lang_groups = group_pages_by_language(page_infos)
-        for lang, pages in lang_groups.items():
-            print(f"\nLangue {lang.upper()}: {len(pages)} pages")
-            for page in pages:
-                print(f"  • {page.clean_title}")
-
-        print("\n### Métriques détaillées")
-        if not detail.empty:
-            print(detail.round(3))
+        if args.monthly:
+            compute_scores_monthly(
+                args.pages, args.start, args.end, args.default_lang, args.workers, args.output
+            )
         else:
-            print("Aucune métrique disponible")
+            scores, detail, page_infos = compute_scores_multilang(
+                args.pages, args.start, args.end, args.default_lang, args.workers
+            )
 
-        print("\n### Scores finaux")
-        final_data = []
-        for page_info in page_infos:
-            uk = page_info.unique_key
-            final_data.append({
-                "title": page_info.clean_title,
-                "langue": page_info.language,
-                "heat": scores.heat.get(uk, 0.0),
-                "quality": scores.quality.get(uk, 0.0),
-                "risk": scores.risk.get(uk, 0.0),
-                "sensitivity": scores.sensitivity.get(uk, 0.0),
-            })
-        final = pd.DataFrame(final_data).round(3)
-        print(final)
+            print("\n" + "=" * 60)
+            print(f"RAPPORT MULTI-LANGUES V2 - {len(args.pages)} pages analysées")
+            print("=" * 60)
+
+            # Affichage par langue
+            lang_groups = group_pages_by_language(page_infos)
+            for lang, pages in lang_groups.items():
+                print(f"\nLangue {lang.upper()}: {len(pages)} pages")
+                for page in pages:
+                    print(f"  • {page.clean_title}")
+
+            print("\n### Métriques détaillées")
+            if not detail.empty:
+                print(detail.round(3))
+            else:
+                print("Aucune métrique disponible")
+
+            print("\n### Scores finaux")
+            final_data = []
+            for page_info in page_infos:
+                uk = page_info.unique_key
+                final_data.append({
+                    "title": page_info.clean_title,
+                    "langue": page_info.language,
+                    "heat": scores.heat.get(uk, 0.0),
+                    "quality": scores.quality.get(uk, 0.0),
+                    "risk": scores.risk.get(uk, 0.0),
+                    "sensitivity": scores.sensitivity.get(uk, 0.0),
+                })
+            final = pd.DataFrame(final_data).round(3)
+            print(final)
 
     except Exception as e:
         logger.error(f"Erreur dans le pipeline: {e}")
