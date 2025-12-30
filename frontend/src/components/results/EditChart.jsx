@@ -56,15 +56,15 @@ const EditChart = ({ pages, analysisConfig }) => {
       }
     }
     
-    // Pour les objets d'analyse, essayer d'utiliser le titre
+
     if (typeof page === 'object' && page !== null && page.title) {
-      return { 
-        label: page.title, 
-        lang: page.language || null, 
-        original: page.original_input || normalizedPage 
+      return {
+        label: page.title,
+        lang: page.language || null,
+        original: page.original_input || normalizedPage
       };
     }
-    
+
     return { label: normalizedPage, lang: null, original: normalizedPage };
   };
 
@@ -73,24 +73,24 @@ const EditChart = ({ pages, analysisConfig }) => {
     if (pages && pages.length > 0) {
       const labelMap = new Map();
       const normalizedPages = [];
-      
+
       pages.forEach((page) => {
         const pageInfo = createUserLabel(page);
         const normalizedPage = normalizePage(page);
-        
+
         labelMap.set(normalizedPage, pageInfo.label);
         normalizedPages.push(normalizedPage);
       });
-      
+
       setPageLabelsMap(labelMap);
-      
+
       // Sélectionner les premières pages normalisées par défaut
       const initialSelection = normalizedPages.slice(0, Math.min(5, normalizedPages.length));
       setSelectedPages(initialSelection);
-      
+
       console.log('EditChart - Pages analysées:', pages.map(p => {
         const normalized = normalizePage(p);
-        return { 
+        return {
           original: p,
           normalized: normalized,
           label: labelMap.get(normalized),
@@ -119,7 +119,7 @@ const EditChart = ({ pages, analysisConfig }) => {
       console.log('- Pages sélectionnées:', selectedPages);
       console.log('- Type éditeur:', editorType);
       console.log('- Période:', analysisConfig.startDate, 'à', analysisConfig.endDate);
-      
+
       // IMPORTANT: Envoyer les pages telles quelles (URLs complètes)
       // L'API se charge de la détection de langue per-page
       const requestData = {
@@ -129,9 +129,9 @@ const EditChart = ({ pages, analysisConfig }) => {
         editor_type: editorType,
         // On ne spécifie PAS default_language car toutes nos pages sont des URLs
       };
-      
+
       console.log('📤 Données de requête éditions:', JSON.stringify(requestData, null, 2));
-      
+
       const data = await apiService.fetchEditTimeseriesForChart(
         selectedPages,
         analysisConfig.startDate,
@@ -140,23 +140,23 @@ const EditChart = ({ pages, analysisConfig }) => {
       );
 
       console.log('📥 Données éditions reçues:', data);
-      
+
       if (data.metadata?.languages_summary) {
         console.log('🌍 Langues détectées par l\'API:', data.metadata.languages_summary);
       }
-      
+
       // Vérifier la correspondance des données
       if (data.data && data.data.length > 0) {
         const dataKeys = Object.keys(data.data[0]).filter(key => key !== 'date');
         console.log('📊 Clés de données reçues:', dataKeys);
         console.log('🔍 Pages demandées:', selectedPages);
-        
+
         const missingPages = selectedPages.filter(page => !dataKeys.includes(page));
         if (missingPages.length > 0) {
           console.warn('⚠️ Pages manquantes dans les données:', missingPages);
         }
       }
-      
+
       setEditData(data);
     } catch (err) {
       console.error('❌ Erreur récupération éditions:', err);
@@ -179,7 +179,7 @@ const EditChart = ({ pages, analysisConfig }) => {
     const originalPage = pages[pageIndex];
     const normalizedPage = normalizePage(originalPage);
     const isSelected = selectedPages.includes(normalizedPage);
-    
+
     if (isSelected) {
       setSelectedPages(prev => prev.filter(p => p !== normalizedPage));
     } else {
@@ -212,11 +212,11 @@ const EditChart = ({ pages, analysisConfig }) => {
           {payload.map((entry, index) => {
             const normalizedUrl = entry.dataKey;
             const userLabel = pageLabelsMap.get(normalizedUrl) || normalizedUrl;
-            
+
             // Retrouver la page originale pour extraire les infos de langue
             const originalPage = pages?.find(p => normalizePage(p) === normalizedUrl);
             const pageInfo = createUserLabel(originalPage || normalizedUrl);
-            
+
             return (
               <p key={index} style={{ color: entry.color }}>
                 {userLabel}
@@ -240,7 +240,7 @@ const EditChart = ({ pages, analysisConfig }) => {
 
   return (
     <div className="pageviews-chart-container">
-      
+
 
       {/* Sélecteur de pages */}
       {pages && pages.length > 1 && (
@@ -252,28 +252,28 @@ const EditChart = ({ pages, analysisConfig }) => {
               const color = colors[index % colors.length];
               const pageInfo = createUserLabel(page);
               const displayLabel = pageLabelsMap.get(normalizedPage) || pageInfo.label;
-              
+
               return (
                 <button
                   key={index}
                   className={`page-chip-minimal ${isSelected ? 'selected' : ''}`}
                   onClick={() => handlePageToggle(index)}
-                  style={isSelected ? { 
-                    borderColor: color, 
+                  style={isSelected ? {
+                    borderColor: color,
                     backgroundColor: `${color}15`,
                     color: color
                   } : {}}
                   disabled={!isSelected && selectedPages.length >= 10}
                 >
                   <span className="chip-title">
-                    {displayLabel.length > 15 
-                      ? `${displayLabel.substring(0, 15)}...` 
+                    {displayLabel.length > 15
+                      ? `${displayLabel.substring(0, 15)}...`
                       : displayLabel
                     }
                   </span>
                   {pageInfo.lang && (
                     <span className="chip-lang-indicator">
-                      &nbsp;{pageInfo.lang.toUpperCase()}
+                      &nbsp;({pageInfo.lang.toUpperCase()})
                     </span>
                   )}
                 </button>

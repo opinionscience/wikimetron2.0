@@ -35,17 +35,18 @@ const METRIC_CATEGORIES = {
     description: 'Indicators of controversy and abnormal activity',
     color: '#ef4444'
   },
-  quality: {
-    metrics: ["Suspicious sources", 'Featured article', 'Citation gaps', 'Staleness', 'Source concentration', 'Add/delete ratio'],
-    title: 'Quality risk',
-    description: 'Indicators of content quality and reliability',
-    color: '#3b82f6'
-  },
   risk: {
     metrics: ["Sockpuppets", 'Anonymity', 'Contributors concentration', 'Sporadicity', 'Contributor add/delete ratio'],
     title: 'Behaviour risk',
     description: 'Indicators of suspicious editing behaviors',
     color: '#f59e0b'
+  },
+
+  quality: {
+    metrics: ["Suspicious sources", 'Featured article', 'Citation gaps', 'Staleness', 'Source concentration', 'Add/delete ratio'],
+    title: 'Quality risk',
+    description: 'Indicators of content quality and reliability',
+    color: '#3b82f6'
   }
 };
 

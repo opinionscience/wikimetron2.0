@@ -7,6 +7,7 @@ const API_BASE =
     ? process.env.REACT_APP_API_URL || "http://localhost:8200"
     : "";
 
+
 /** Étends la liste au besoin ; fallback prévu si code inconnu */
 const LANGUAGE_OPTIONS = [
   { value: 'fr', label: '🇫🇷 Français' },
@@ -120,6 +121,80 @@ const langLabel = (code) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────
+// Nouveau composant : Input avec autocomplétion Wikipedia
+// ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+// Modification : On force width: '100%' sur l'input
+// ─────────────────────────────────────────────────────────────────────
+const WikiTitleInput = ({ value, language, onChange, placeholder, className, style }) => {
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (!value || value.length < 2 || !language) {
+        setSuggestions([]);
+        return;
+      }
+
+      try {
+        const url = `https://${language}.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(value)}&limit=5&origin=*&format=json`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data && data[1]) {
+            const newSuggestions = data[1].map((title, index) => ({
+              title: title,
+              desc: data[2][index],
+              url: data[3][index]
+            }));
+            setSuggestions(newSuggestions);
+            setShowSuggestions(true);
+        }
+      } catch (err) {
+        console.warn("Wiki autosuggest error:", err);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [value, language]);
+
+  const handleSelect = (suggestion) => {
+    onChange(suggestion.title);
+    setShowSuggestions(false);
+  };
+
+  return (
+    // La div conteneur prend l'espace flexible (flex: 1)
+    <div style={{ position: 'relative', flex: 1, display: 'flex' }}>
+      <input
+        type="text"
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+        onFocus={() => value && suggestions.length > 0 && setShowSuggestions(true)}
+        placeholder={placeholder}
+        className={className}
+        // MODIFICATION ICI : On fusionne le style reçu avec width: 100%
+        style={{ ...style, width: '100%' }}
+        autoComplete="off"
+      />
+
+      {showSuggestions && suggestions.length > 0 && (
+        <ul className="wiki-suggestions-list">
+          {suggestions.map((s, i) => (
+            <li key={i} onClick={() => handleSelect(s)}>
+              <strong>{s.title}</strong>
+              {s.desc && <small>{s.desc}</small>}
+              <small style={{opacity: 0.6, fontSize: '0.75em'}}>{s.url}</small>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
+// ─────────────────────────────────────────────────────────────────────
 // Sous-composants
 // ─────────────────────────────────────────────────────────────────────
 const PagesInput = ({
@@ -183,21 +258,10 @@ const PagesInput = ({
         <span>OR</span>
       </div>
 
-      {/* Titre + langue principale */}
+      {/* Langue + Titre principale (MODIFIÉ - langue en premier) */}
       <div className="page-name-group">
-        <div className="page-name-section">
-          <span className="input-label">Page name:</span>
-          <input
-            type="text"
-            value={pageNameValue || ''}
-            onChange={(e) => onPageNameChange(e.target.value)}
-            placeholder="  Type the title of a page"
-            className="form-input page-name-input"
-            style={{ backgroundColor: '#f5f5f5' }}
-          />
-        </div>
         <div className="language-section">
-          <span className="and-language">Language:</span>
+          <span className="input-label">Language:</span>
           <select
             value={selectedLanguage || ''}
             onChange={(e) => onLanguageChange(e.target.value)}
@@ -212,63 +276,62 @@ const PagesInput = ({
             ))}
           </select>
         </div>
+        <div className="page-name-section">
+          <span className="and-language">Page name:</span>
+          {/* Utilisation de WikiTitleInput */}
+          <WikiTitleInput
+            value={pageNameValue}
+            language={selectedLanguage}
+            onChange={onPageNameChange}
+            placeholder="  Type the title of a page"
+            className="form-input page-name-input"
+            style={{ backgroundColor: '#f5f5f5' }}
+          />
+        </div>
       </div>
 
       {/* Pages supplémentaires */}
-      {additionalPages && additionalPages.length > 0 && additionalPages.map((page, index) => {
-        const additionalDetectedLang = detectLanguageFromInput(page.url || '');
-        return (
-          <div key={index} className="additional-page-group">
-            {/* URL */}
-            <div className="page-input-group">
-              <span className="input-label">Page URL:</span>
-              <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                <input
-                  type="text"
-                  value={page.url || ''}
-                  onChange={(e) => {
-                    const newPages = [...additionalPages];
-                    newPages[index] = {
-                      ...newPages[index],
-                      url: e.target.value,
-                      ...(e.target.value ? { pageName: '', language: '' } : {})
-                    };
-                    onAdditionalPagesChange(newPages);
-                  }}
-                  placeholder="  https://en.wikipedia.org/wiki/the_page_title"
-                  className="form-input page-url-input"
-                />
-                {additionalDetectedLang && (
-                  <span className="detected-language-badge" style={{ marginLeft: 8 }}>
-                    {langLabel(additionalDetectedLang)}
-                  </span>
-                )}
-              </div>
-            </div>
+{additionalPages && additionalPages.length > 0 && additionalPages.map((page, index) => {
+  const additionalDetectedLang = detectLanguageFromInput(page.url || '');
+  return (
+    <div key={index} className="additional-page-group">
+      {/* URL */}
+      <div className="page-input-group">
+        <span className="input-label">Page URL:</span>
+        {/* Le conteneur prend 100% */}
+        <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+          <input
+            type="text"
+            value={page.url || ''}
+            onChange={(e) => {
+              const newPages = [...additionalPages];
+              newPages[index] = {
+                ...newPages[index],
+                url: e.target.value,
+                ...(e.target.value ? { pageName: '', language: '' } : {})
+              };
+              onAdditionalPagesChange(newPages);
+            }}
+            placeholder="  https://en.wikipedia.org/wiki/the_page_title"
+            className="form-input page-url-input"
+            // MODIFICATION ICI : on ajoute flex: 1 pour qu'il s'étire jusqu'au bout
+            style={{ flex: 1 }}
+          />
+          {additionalDetectedLang && (
+            <span className="detected-language-badge" style={{ marginLeft: 8 }}>
+              {langLabel(additionalDetectedLang)}
+            </span>
+          )}
+        </div>
+      </div>
 
-            <div className="input-separator">
-              <span>OR</span>
-            </div>
+      <div className="input-separator">
+        <span>OR</span>
+      </div>
 
-            {/* Titre + langue */}
+            {/* Langue + Titre (MODIFIÉ - langue en premier) */}
             <div className="page-name-group">
-              <span className="input-label">Page name:</span>
-              <input
-                type="text"
-                value={page.pageName || ''}
-                onChange={(e) => {
-                  const newPages = [...additionalPages];
-                  newPages[index] = {
-                    ...newPages[index],
-                    pageName: e.target.value,
-                    ...(e.target.value ? { url: '' } : {})
-                  };
-                  onAdditionalPagesChange(newPages);
-                }}
-                placeholder="  Type the title of a page"
-                className="form-input page-name-input"
-              />
-              <span className="and-language">Language:</span>
+              <span className="input-label">Language:</span>
               <select
                 value={page.language || ''}
                 onChange={(e) => {
@@ -286,6 +349,23 @@ const PagesInput = ({
                   </option>
                 ))}
               </select>
+              <span className="and-language">Page name:</span>
+              {/* Utilisation de WikiTitleInput */}
+              <WikiTitleInput
+                value={page.pageName}
+                language={page.language}
+                onChange={(newValue) => {
+                  const newPages = [...additionalPages];
+                  newPages[index] = {
+                    ...newPages[index],
+                    pageName: newValue,
+                    ...(newValue ? { url: '' } : {})
+                  };
+                  onAdditionalPagesChange(newPages);
+                }}
+                placeholder="  Type the title of a page"
+                className="form-input page-name-input"
+              />
             </div>
 
             {/* Supprimer */}
@@ -445,7 +525,7 @@ const ConfigurationPage = ({
   const [startDate, setStartDate] = useState('2024-01-01');
   const [endDate, setEndDate] = useState('2024-12-31');
   const [error, setError] = useState(null);
-  const [taskLanguages, setTaskLanguages] = useState(null); // languages dict renvoyé par /api/analyze
+  const [taskLanguages, setTaskLanguages] = useState(null);
 
   const detectedLanguage = detectLanguageFromInput(urlInput);
 
@@ -509,7 +589,6 @@ const ConfigurationPage = ({
     setError(null);
     setTaskLanguages(null);
 
-    // Toujours envoyer des URLs pour préserver la langue par page
     const pagesForApi = buildPagesForApi();
 
     const analysisDataLocal = {
@@ -530,7 +609,6 @@ const ConfigurationPage = ({
         pages: pagesForApi,
         start_date: startDate,
         end_date: endDate
-        // NOTE: on NE PASSE PAS default_language car chaque titre a été converti en URL (avec sa langue)
       };
 
       const response = await fetch(`${API_BASE}/api/analyze`, {
@@ -546,7 +624,6 @@ const ConfigurationPage = ({
 
       const data = await response.json();
 
-      // languages = dict {"fr": n, "en": m}
       if (data?.languages) {
         setTaskLanguages(data.languages);
       }

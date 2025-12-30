@@ -1325,3 +1325,52 @@ code, pre, kbd, samp {
     border-radius: 8px;
   }
 }
+
+.wiki-suggestions-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  max-height: 250px;
+  overflow-y: auto;
+  z-index: 9999;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+}
+
+.wiki-suggestions-list li {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  flex-direction: column;
+  transition: background-color 0.2s;
+}
+
+.wiki-suggestions-list li:last-child {
+  border-bottom: none;
+}
+
+.wiki-suggestions-list li:hover {
+  background-color: #f3f6ff;
+}
+
+.wiki-suggestions-list li strong {
+  font-size: 14px;
+  color: #2c3e50;
+  margin-bottom: 2px;
+}
+
+.wiki-suggestions-list li small {
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}

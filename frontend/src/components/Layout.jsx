@@ -29,7 +29,7 @@ const Layout = ({ children, pageTitle, subtitle, onBackToConfig }) => (
       <div className="footer-content">
         <div className="footer-logos">
           <a
-            href="https://www.opsci.ai/fr"
+            href="https://www.opsci.ai"
             target="_blank"
             rel="noopener noreferrer"
             className="footer-logo-link"

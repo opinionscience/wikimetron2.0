@@ -189,13 +189,13 @@ const PageviewsChart = ({ pages, analysisConfig }) => {
             const userLabel = pageLabelsMap.get(originalUrl) || originalUrl;
             const pageInfo = createUserLabel(originalUrl);
             
-            return (
-              <p key={index} style={{ color: entry.color }}>
-                {userLabel}
-                {pageInfo.lang && <span className="lang-indicator"> ({pageInfo.lang.toUpperCase()})</span>}
-                : {formatNumber(entry.value)} vues
-              </p>
-            );
+           return (
+  <p key={index} style={{ color: entry.color }}>
+    {userLabel}
+    {pageInfo.lang && <span className="lang-indicator"> ({pageInfo.lang.toUpperCase()})</span>}
+    : {formatNumber(entry.value)} vues
+  </p>
+);
           })}
           {pageviewsData?.metadata?.languages_summary && Object.keys(pageviewsData.metadata.languages_summary).length > 1 && (
             <p className="languages-summary">

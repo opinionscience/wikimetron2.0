@@ -156,10 +156,15 @@ const ModernPageSelector = ({ pages, selectedIndices, comparisonMode, onSelectio
               title={page.title}
             >
               {page.title}
+              {page.language && (
+                <span style={{ marginLeft: '4px', opacity: 0.8 }}>
+                  ({page.language.toUpperCase()})
+                </span>
+              )}
             </button>
           ))}
         </div>
-        
+
         {pages.length > 1 && (
           <div className="comparison-toggle-container">
             <span className="comparison-toggle-label">Comparison</span>
@@ -174,7 +179,6 @@ const ModernPageSelector = ({ pages, selectedIndices, comparisonMode, onSelectio
     </div>
   );
 };
-
 const SensitivityScoresHeader = ({ pages, selectedIndices }) => {
   const selectedPages = selectedIndices.map(index => pages[index]);
 
