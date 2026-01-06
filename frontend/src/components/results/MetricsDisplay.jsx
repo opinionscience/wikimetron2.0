@@ -145,6 +145,17 @@ const Tooltip = ({ children, text, position = 'top', isFirst = false }) => {
   );
 };
 const MetricsDisplay = ({ pages, comparisonMode }) => {
+  // État pour gérer l'expansion des sockpuppets par index de page
+  const [expandedSockpuppets, setExpandedSockpuppets] = useState({});
+
+  // Toggle l'affichage des sockpuppets pour une page donnée
+  const toggleSockpuppets = (pageIndex) => {
+    setExpandedSockpuppets(prev => ({
+      ...prev,
+      [pageIndex]: !prev[pageIndex]
+    }));
+  };
+
   // Fonction pour calculer les statistiques de comparaison
   const getComparisonStats = (metricKey) => {
     const values = pages.map(page => page.metrics?.[metricKey] || 0);
@@ -164,13 +175,12 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
   // Composant pour une métrique individuelle avec layout horizontal - compatible avec vos classes CSS
   const MetricItem = ({ metricKey, stats }) => {
     if (!stats) return null;
-    
+
     return (
       <div className="metric-item-horizontal">
         <div className="metric-name-horizontal">
           <Tooltip text={METRIC_TOOLTIPS[metricKey] || 'Information sur cette métrique'}>
-            <span style={{ 
-              
+            <span style={{
               paddingBottom: '1px'
             }}>
               {metricKey}
@@ -182,20 +192,185 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
             pages.map((page, index) => {
               const value = page.metrics?.[metricKey] || 0;
               const pageColor = PAGE_COLORS[index % PAGE_COLORS.length];
+              const detectedSockpuppets = metricKey === 'Sockpuppets' ? page.detected_sockpuppets : null;
+              const hasSockpuppets = detectedSockpuppets && detectedSockpuppets.length > 0;
+              const isExpanded = expandedSockpuppets[index];
+
               return (
                 <div key={index} className="metric-page-value" style={{color: pageColor}}>
-                  <span className="page-value">
+                  <span
+                    className="page-value"
+                    onClick={() => hasSockpuppets && toggleSockpuppets(index)}
+                    style={{
+                      cursor: hasSockpuppets ? 'pointer' : 'default',
+                      userSelect: 'none',
+                      position: 'relative',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
                     {renderMetricValue(value)}
+                    {hasSockpuppets && (
+                      <span style={{
+                        fontSize: '0.7em',
+                        opacity: 0.7,
+                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.2s ease'
+                      }}>
+                        ▼
+                      </span>
+                    )}
                   </span>
+                  {/* Afficher les sockpuppets détectés au clic */}
+                  {hasSockpuppets && isExpanded && (
+                    <div className="detected-sockpuppets" style={{
+                      marginTop: '6px',
+                      padding: '6px 8px',
+                      backgroundColor: '#ef4444',
+                      borderLeft: '2px solid #ffc107',
+                      borderRadius: '4px',
+                      fontSize: '0.75em',
+                      animation: 'slideDown 0.2s ease-out'
+                    }}>
+                      <div style={{ fontWeight: '600', color: '#856404', marginBottom: '3px', fontSize: '0.85em' }}>
+                        Detected:
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
+                        {detectedSockpuppets.map((username, idx) => (
+                          <a
+                            key={idx}
+                            href={`https://${page.language}.wikipedia.org/wiki/User:${encodeURIComponent(username)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'inline-block',
+                              padding: '2px 6px',
+                              backgroundColor: '#fff',
+                              border: '1px solid #ffc107',
+                              borderRadius: '10px',
+                              color: '#856404',
+                              fontSize: '0.9em',
+                              textDecoration: 'none',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.backgroundColor = '#ffc107';
+                              e.target.style.color = '#fff';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.backgroundColor = '#fff';
+                              e.target.style.color = '#856404';
+                            }}
+                          >
+                            {username}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })
           ) : (
             <div className="metric-single-value-horizontal">
-              {renderMetricValue(stats.values[0])}
+              <span
+                className="page-value"
+                onClick={() => {
+                  const hasSockpuppets = metricKey === 'Sockpuppets' &&
+                    pages[0]?.detected_sockpuppets &&
+                    pages[0].detected_sockpuppets.length > 0;
+                  if (hasSockpuppets) toggleSockpuppets(0);
+                }}
+                style={{
+                  cursor: (metricKey === 'Sockpuppets' &&
+                    pages[0]?.detected_sockpuppets &&
+                    pages[0].detected_sockpuppets.length > 0) ? 'pointer' : 'default',
+                  userSelect: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                {renderMetricValue(stats.values[0])}
+                {metricKey === 'Sockpuppets' && pages[0]?.detected_sockpuppets && pages[0].detected_sockpuppets.length > 0 && (
+                  <span style={{
+                    fontSize: '0.8em',
+                    opacity: 0.7,
+                    transform: expandedSockpuppets[0] ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease'
+                  }}>
+                    ▼
+                  </span>
+                )}
+              </span>
+              {/* Afficher les sockpuppets détectés au clic en mode single page */}
+              {metricKey === 'Sockpuppets' &&
+                pages[0]?.detected_sockpuppets &&
+                pages[0].detected_sockpuppets.length > 0 &&
+                expandedSockpuppets[0] && (
+                <div className="detected-sockpuppets" style={{
+                  marginTop: '10px',
+                  padding: '10px 12px',
+                  backgroundColor: '#fff3cd',
+                  borderLeft: '3px solid #ffc107',
+                  borderRadius: '6px',
+                  fontSize: '0.9em',
+                  animation: 'slideDown 0.2s ease-out'
+                }}>
+                  <div style={{ fontWeight: '600', color: '#856404', marginBottom: '6px' }}>
+                    Detected sockpuppets:
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {pages[0].detected_sockpuppets.map((username, idx) => (
+                      <a
+                        key={idx}
+                        href={`https://${pages[0].language}.wikipedia.org/wiki/User:${encodeURIComponent(username)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-block',
+                          padding: '4px 10px',
+                          backgroundColor: '#fff',
+                          border: '1px solid #ffc107',
+                          borderRadius: '12px',
+                          color: '#856404',
+                          fontWeight: '500',
+                          textDecoration: 'none',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = '#ffc107';
+                          e.target.style.color = '#fff';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = '#fff';
+                          e.target.style.color = '#856404';
+                        }}
+                      >
+                        {username}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
+        <style jsx>{`
+          @keyframes slideDown {
+            from {
+              opacity: 0;
+              transform: translateY(-10px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+        `}</style>
       </div>
     );
   };

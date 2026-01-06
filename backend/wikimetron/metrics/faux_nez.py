@@ -31,7 +31,7 @@ def load_user_list(csv_path: str) -> Set[str]:
     except Exception as e:
         logger.error(f"Erreur lors du chargement du CSV {csv_path}: {e}")
         return set()
-def get_page_contributors(page_title: str, lang: str = "fr", limit: int = 500) -> Dict[str, int]:
+def get_page_contributors(page_title: str, lang: str = "fr", limit: int = 10000) -> Dict[str, int]:
     """
     Récupère les contributeurs d'une page Wikipedia via l'API avec le nombre de contributions.
     Utilise l'API revisions pour compter les vraies contributions par page.
@@ -144,7 +144,7 @@ def get_page_contributors(page_title: str, lang: str = "fr", limit: int = 500) -
         logger.error(f"Erreur inattendue pour la page '{page_title}': {e}")
 
     return contributors
-def calculate_user_detection_score(page_title: str, target_users: Set[str], lang: str = "fr") -> float:
+def calculate_user_detection_score(page_title: str, target_users: Set[str], lang: str = "fr") -> tuple:
     """
     Calcule le score de détection d'utilisateurs pour une page.
     Retourne 1 si au moins un utilisateur cible a contribué à la page, 0 sinon.
@@ -155,16 +155,18 @@ def calculate_user_detection_score(page_title: str, target_users: Set[str], lang
         lang: Code langue
 
     Returns:
-        1.0 si au moins un utilisateur cible est détecté, 0.0 sinon
+        Tuple[float, List[str]]: (score, liste des utilisateurs détectés)
+        - score: 1.0 si au moins un utilisateur cible est détecté, 0.0 sinon
+        - detected_users: Liste des noms d'utilisateurs détectés
     """
     if not target_users:
-        return 0.0
+        return 0.0, []
 
     # Récupérer les contributeurs de la page avec leur nombre de contributions
     contributors = get_page_contributors(page_title, lang)
 
     if not contributors:
-        return 0.0
+        return 0.0, []
 
     # Vérifier si au moins un utilisateur cible est dans les contributeurs
     detected = False
@@ -177,10 +179,10 @@ def calculate_user_detection_score(page_title: str, target_users: Set[str], lang
 
     if detected:
         logger.info(f"Page '{page_title}': utilisateurs détectés: {', '.join(detected_users)}")
-        return 1.0
+        return 1.0, detected_users
     else:
-        return 0.0
-def get_user_detection_score(pages: List[str], csv_path: str = None, users: List[str] = None, lang: str = "fr") -> pd.Series:
+        return 0.0, []
+def get_user_detection_score(pages: List[str], csv_path: str = None, users: List[str] = None, lang: str = "fr"):
     """
     Fonction principale pour le pipeline de scoring.
 
@@ -191,7 +193,9 @@ def get_user_detection_score(pages: List[str], csv_path: str = None, users: List
         lang: Code langue Wikipedia
 
     Returns:
-        pd.Series avec les scores de détection pour chaque page
+        Tuple[pd.Series, Dict[str, List[str]]]:
+        - pd.Series avec les scores de détection pour chaque page
+        - Dict avec les utilisateurs détectés par page {page_title: [username1, username2, ...]}
 
     Note:
         - Si users est fourni, il est utilisé en priorité
@@ -216,20 +220,22 @@ def get_user_detection_score(pages: List[str], csv_path: str = None, users: List
 
     if not target_users:
         logger.warning("Aucun utilisateur fourni (ni liste directe ni CSV), retour de scores 0")
-        return pd.Series(index=pages, data=0.0, name="user_detection_score")
+        return pd.Series(index=pages, data=0.0, name="user_detection_score"), {}
 
     logger.info(f"Total utilisateurs à détecter: {len(target_users)}")
     if len(target_users) <= 10:  # Afficher la liste si petite
         logger.info(f"Utilisateurs ciblés: {sorted(target_users)}")
 
     scores = {}
+    detected_details = {}  # Nouveau: stockage des utilisateurs détectés par page
 
     for i, page in enumerate(pages):
         logger.debug(f"Analyse page {i+1}/{len(pages)}: {page}")
 
         try:
-            score = calculate_user_detection_score(page, target_users, lang)
+            score, detected_users = calculate_user_detection_score(page, target_users, lang)
             scores[page] = score
+            detected_details[page] = detected_users  # Stocker les noms des utilisateurs détectés
 
             # Délai respectueux pour éviter de surcharger l'API Wikipedia
             # Plus long car on fait maintenant des requêtes plus lourdes (revisions)
@@ -238,6 +244,7 @@ def get_user_detection_score(pages: List[str], csv_path: str = None, users: List
         except Exception as e:
             logger.error(f"Erreur pour la page '{page}': {e}")
             scores[page] = 0.0
+            detected_details[page] = []
 
     result = pd.Series(scores, name="user_detection_score")
 
@@ -247,7 +254,7 @@ def get_user_detection_score(pages: List[str], csv_path: str = None, users: List
 
     logger.info(f"Analyse terminée: {detected_pages}/{len(pages)} pages avec détection, score moyen: {avg_score:.3f}")
 
-    return result
+    return result, detected_details
 if __name__ == "__main__":
     import argparse
 
@@ -278,7 +285,7 @@ if __name__ == "__main__":
         ap.exit(1)
 
     try:
-        scores = get_user_detection_score(args.pages, args.csv, args.users, args.lang)
+        scores, detected_details = get_user_detection_score(args.pages, args.csv, args.users, args.lang)
 
         print("\n" + "="*50)
         print("RÉSULTATS DE DÉTECTION D'UTILISATEURS")
@@ -292,7 +299,9 @@ if __name__ == "__main__":
 
         for page, score in scores.items():
             status = "✓" if score > 0 else "✗"
-            print(f"{status} {page:<30} : {score:.0f}")
+            detected_users = detected_details.get(page, [])
+            users_str = f" → {', '.join(detected_users)}" if detected_users else ""
+            print(f"{status} {page:<30} : {score:.0f}{users_str}")
 
         print(f"\nStatistiques:")
         print(f"- Pages avec détection: {(scores > 0).sum()}/{len(scores)}")
