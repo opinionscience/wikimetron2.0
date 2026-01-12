@@ -233,7 +233,7 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
                       fontSize: '0.75em',
                       animation: 'slideDown 0.2s ease-out'
                     }}>
-                      <div style={{ fontWeight: '600', color: '#856404', marginBottom: '3px', fontSize: '0.85em' }}>
+                      <div style={{ fontWeight: '600', color: '#d4cdbf', marginBottom: '3px', fontSize: '0.85em' }}>
                         Detected:
                       </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
@@ -249,7 +249,7 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
                               backgroundColor: '#fff',
                               border: '1px solid #ffc107',
                               borderRadius: '10px',
-                              color: '#856404',
+                              color: '#efece4',
                               fontSize: '0.9em',
                               textDecoration: 'none',
                               cursor: 'pointer',
@@ -261,7 +261,7 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
                             }}
                             onMouseLeave={(e) => {
                               e.target.style.backgroundColor = '#fff';
-                              e.target.style.color = '#856404';
+                              e.target.style.color = '#edebe5';
                             }}
                           >
                             {username}
