@@ -45,8 +45,13 @@ RISK_W = {
     "Contributor add/delete ratio": 3,
 }
 
-MAX_WORKERS = 16
-DEFAULT_BATCH_SIZE = 2  # ← NOUVEAU : Taille par défaut des batches
+MAX_WORKERS = 1  # ← RÉDUIT à 1 seul worker pour éviter complètement les erreurs "too many requests"
+DEFAULT_BATCH_SIZE = 50  # ← AUGMENTÉ pour traiter plus de pages par batch
+
+# Gestion du délai adaptatif pour éviter les erreurs 429
+ADAPTIVE_DELAY = 1.0  # Délai initial en secondes
+MIN_DELAY = 0.5       # Délai minimum
+MAX_DELAY = 10.0      # Délai maximum
 
 
 @dataclass
@@ -145,6 +150,9 @@ def execute_single_metric_lang_batch(
         page_batch: List[PageInfo],  # ← CHANGÉ : Maintenant c'est un batch de PageInfo
         *extra_args
 ) -> tuple:
+    # Délai adaptatif avant chaque exécution
+    global ADAPTIVE_DELAY
+    time.sleep(ADAPTIVE_DELAY)
     """
     Exécute une métrique pour UNE langue sur UN BATCH de pages.
 
@@ -206,9 +214,21 @@ def execute_single_metric_lang_batch(
             val = raw_dict.get(title, 0.0)
             final_dict[title] = float(val) * 100.0
 
+        # Succès → Réduire progressivement le délai
+        ADAPTIVE_DELAY = max(MIN_DELAY, ADAPTIVE_DELAY * 0.9)
+
         return final_dict, details
 
     except Exception as e:
+        error_msg = str(e)
+
+        # Détecter les erreurs 429 (Too Many Requests)
+        if "429" in error_msg or "Too many requests" in error_msg or "too many requests" in error_msg:
+            # Doubler le délai en cas d'erreur 429
+            old_delay = ADAPTIVE_DELAY
+            ADAPTIVE_DELAY = min(MAX_DELAY, ADAPTIVE_DELAY * 2.0)
+            logger.warning(f"⚠️  Erreur 429 détectée pour {metric_name} - Délai adaptatif: {old_delay:.1f}s → {ADAPTIVE_DELAY:.1f}s")
+
         logger.error(f"Erreur {metric_name} ({lang}, batch de {len(page_batch)} pages): {e}")
         return {p.clean_title: 0.0 for p in page_batch}, None
 
@@ -260,23 +280,23 @@ def collect_metrics_parallel_multilang(
         - details: {metric_name: details_dict} pour les métriques avec infos additionnelles
     """
 
-    from wikimetron.metrics.pageviews import get_pageview_spikes_normalized
-    from wikimetron.metrics.edit import get_edit_spikes
-    from wikimetron.metrics.protection import get_protection_scores
-    from wikimetron.metrics.ref import get_citation_gap
-    from wikimetron.metrics.balance import get_event_imbalance_events_only
-    from wikimetron.metrics.last_edit import get_recency_score
-    from wikimetron.metrics.adq import get_adq_score
-    from wikimetron.metrics.user_balance_metric import get_mean_contributor_balance
-    from wikimetron.metrics.monopol import get_monopolization_scores
-    from wikimetron.metrics.quantity import get_avg_activity_score
-    from wikimetron.metrics.domination import get_domain_dominance
-    from wikimetron.metrics.taille_talk import discussion_score
-    from wikimetron.metrics.ano_edit import get_anon_edit_score_series
-    from wikimetron.metrics.blacklist_metric import get_blacklist_share
-    from wikimetron.metrics.revert_risk import get_revert_risk
-    from wikimetron.metrics.faux_nez import get_user_detection_score
-    from wikimetron.metrics.privileged_bonus import get_privileged_bonus
+    from pageviews import get_pageview_spikes_normalized
+    from edit import get_edit_spikes
+    from protection import get_protection_scores
+    from ref import get_citation_gap
+    from balance import get_event_imbalance_events_only
+    from last_edit import get_recency_score
+    from adq import get_adq_score
+    from user_balance_metric import get_mean_contributor_balance
+    from monopol import get_monopolization_scores
+    from quantity import get_avg_activity_score
+    from domination import get_domain_dominance
+    from taille_talk import discussion_score
+    from ano_edit import get_anon_edit_score_series
+    from blacklist_metric import get_blacklist_share
+    from revert_risk import get_revert_risk
+    from faux_nez import get_user_detection_score
+    from privileged_bonus import get_privileged_bonus
 
     # 1. Préparation des groupes par langue
     lang_groups = group_pages_by_language(page_infos)
@@ -332,8 +352,8 @@ def collect_metrics_parallel_multilang(
         "Contributors concentration": (10, end),
         "Sporadicity": (10, 100, end),
         "Staleness": (end,),
-        "Suspicious sources": ("wikimetron/metrics/blacklist.csv",),
-        "Sockpuppets": ("wikimetron/metrics/faux_nez.csv",),
+        "Suspicious sources": ("blacklist.csv",),
+        "Sockpuppets": ("faux_nez.csv",),
     }
 
     # ═══════════════════════════════════════════════════════════════════════════════════
@@ -342,12 +362,9 @@ def collect_metrics_parallel_multilang(
     # Plus on a de petites tâches, plus on peut utiliser de workers
     # Formule : min(workers_base × facteur, limite_max)
 
-    if total_batches > 100:
-        dynamic_workers = min(max_workers * 3, 48)  # Beaucoup de batches → beaucoup de workers
-    elif total_batches > 50:
-        dynamic_workers = min(max_workers * 2, 32)
-    else:
-        dynamic_workers = max_workers
+    # MODIFIÉ : Réduction drastique des workers pour éviter les erreurs "too many requests"
+    # On utilise toujours MAX_WORKERS sans multiplication pour éviter le rate limiting
+    dynamic_workers = max_workers
 
     logger.info(f"Workers dynamiques : {dynamic_workers} (adapté à {total_batches} batches)")
     # ═══════════════════════════════════════════════════════════════════════════════════
@@ -356,7 +373,9 @@ def collect_metrics_parallel_multilang(
     results_accumulator = defaultdict(dict)  # {metric_name: {unique_key: score}}
     metric_details = defaultdict(dict)  # {metric_name: {lang: details}}
 
+    global ADAPTIVE_DELAY
     logger.info(f"Démarrage collecte avec batching (Workers: {dynamic_workers})")
+    logger.info(f"Délai adaptatif initial: {ADAPTIVE_DELAY:.1f}s (min: {MIN_DELAY}s, max: {MAX_DELAY}s)")
 
     with ThreadPoolExecutor(max_workers=dynamic_workers) as executor:
         future_map = {}
@@ -428,6 +447,7 @@ def collect_metrics_parallel_multilang(
     duration = time.time() - start_time
     logger.info(f"Collecte avec batching terminée en {duration:.2f}s")
     logger.info(f"Débit : {len(page_infos) / duration:.2f} pages/seconde")
+    logger.info(f"Délai adaptatif final: {ADAPTIVE_DELAY:.1f}s")
 
     return final_results, dict(metric_details)
 

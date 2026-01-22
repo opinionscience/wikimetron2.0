@@ -76,19 +76,19 @@ const Tooltip = ({ children, text, position = 'top', isFirst = false }) => {
   };
 
   return (
-    <div 
+    <div
       className="wikimetron-tooltip-container"
       onMouseEnter={() => setIsVisible(true)}
       onMouseLeave={() => setIsVisible(false)}
-      style={{ 
-        position: 'relative', 
+      style={{
+        position: 'relative',
         display: 'inline-block',
         cursor: 'help'
       }}
     >
       {children}
       {isVisible && (
-        <div 
+        <div
           className="wikimetron-tooltip"
           style={{
             position: 'absolute',
@@ -128,7 +128,7 @@ const Tooltip = ({ children, text, position = 'top', isFirst = false }) => {
           />
         </div>
       )}
-      
+
       <style jsx>{`
         @keyframes tooltipFadeIn {
           from {
@@ -147,10 +147,20 @@ const Tooltip = ({ children, text, position = 'top', isFirst = false }) => {
 const MetricsDisplay = ({ pages, comparisonMode }) => {
   // État pour gérer l'expansion des sockpuppets par index de page
   const [expandedSockpuppets, setExpandedSockpuppets] = useState({});
+  // État pour gérer l'expansion des sources suspectes par index de page
+  const [expandedSuspiciousSources, setExpandedSuspiciousSources] = useState({});
 
   // Toggle l'affichage des sockpuppets pour une page donnée
   const toggleSockpuppets = (pageIndex) => {
     setExpandedSockpuppets(prev => ({
+      ...prev,
+      [pageIndex]: !prev[pageIndex]
+    }));
+  };
+
+  // Toggle l'affichage des sources suspectes pour une page donnée
+  const toggleSuspiciousSources = (pageIndex) => {
+    setExpandedSuspiciousSources(prev => ({
       ...prev,
       [pageIndex]: !prev[pageIndex]
     }));
@@ -176,6 +186,16 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
   const MetricItem = ({ metricKey, stats }) => {
     if (!stats) return null;
 
+    // Vérifier si cette métrique a des détails détectés
+    const hasDetailsInAnyPage = pages.some(page => {
+      if (metricKey === 'Sockpuppets') {
+        return page.detected_sockpuppets && page.detected_sockpuppets.length > 0;
+      } else if (metricKey === 'Suspicious sources') {
+        return page.detected_suspicious_sources && page.detected_suspicious_sources.length > 0;
+      }
+      return false;
+    });
+
     return (
       <div className="metric-item-horizontal">
         <div className="metric-name-horizontal">
@@ -184,6 +204,18 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
               paddingBottom: '1px'
             }}>
               {metricKey}
+              {hasDetailsInAnyPage && (
+                <span style={{
+                  fontSize: '0.65em',
+                  marginLeft: '6px',
+                  opacity: 0.6,
+                  fontWeight: '400',
+                  fontStyle: 'italic',
+                  color: metricKey === 'Sockpuppets' ? '#52cd08' : '#52cd08'
+                }}>
+                  click below to see details
+                </span>
+              )}
             </span>
           </Tooltip>
         </div>
@@ -192,17 +224,30 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
             pages.map((page, index) => {
               const value = page.metrics?.[metricKey] || 0;
               const pageColor = PAGE_COLORS[index % PAGE_COLORS.length];
+
+              // Gérer les sockpuppets
               const detectedSockpuppets = metricKey === 'Sockpuppets' ? page.detected_sockpuppets : null;
               const hasSockpuppets = detectedSockpuppets && detectedSockpuppets.length > 0;
-              const isExpanded = expandedSockpuppets[index];
+              const isSockpuppetsExpanded = expandedSockpuppets[index];
+
+              // Gérer les sources suspectes
+              const detectedSuspiciousSources = metricKey === 'Suspicious sources' ? page.detected_suspicious_sources : null;
+              const hasSuspiciousSources = detectedSuspiciousSources && detectedSuspiciousSources.length > 0;
+              const isSuspiciousSourcesExpanded = expandedSuspiciousSources[index];
+
+              const hasDetails = hasSockpuppets || hasSuspiciousSources;
+              const isExpanded = hasSockpuppets ? isSockpuppetsExpanded : isSuspiciousSourcesExpanded;
 
               return (
                 <div key={index} className="metric-page-value" style={{color: pageColor}}>
                   <span
                     className="page-value"
-                    onClick={() => hasSockpuppets && toggleSockpuppets(index)}
+                    onClick={() => {
+                      if (hasSockpuppets) toggleSockpuppets(index);
+                      else if (hasSuspiciousSources) toggleSuspiciousSources(index);
+                    }}
                     style={{
-                      cursor: hasSockpuppets ? 'pointer' : 'default',
+                      cursor: hasDetails ? 'pointer' : 'default',
                       userSelect: 'none',
                       position: 'relative',
                       display: 'inline-flex',
@@ -211,7 +256,7 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
                     }}
                   >
                     {renderMetricValue(value)}
-                    {hasSockpuppets && (
+                    {hasDetails && (
                       <span style={{
                         fontSize: '0.7em',
                         opacity: 0.7,
@@ -223,20 +268,27 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
                     )}
                   </span>
                   {/* Afficher les sockpuppets détectés au clic */}
-                  {hasSockpuppets && isExpanded && (
+                  {hasSockpuppets && isSockpuppetsExpanded && (
                     <div className="detected-sockpuppets" style={{
-                      marginTop: '6px',
-                      padding: '6px 8px',
-                      backgroundColor: '#ef4444',
-                      borderLeft: '2px solid #ffc107',
-                      borderRadius: '4px',
+                      marginTop: '8px',
+                      padding: '10px 12px',
+                      background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                      borderRadius: '8px',
                       fontSize: '0.75em',
-                      animation: 'slideDown 0.2s ease-out'
+                      animation: 'slideDown 0.2s ease-out',
+                      boxShadow: '0 2px 8px rgba(245, 158, 11, 0.15)'
                     }}>
-                      <div style={{ fontWeight: '600', color: '#d4cdbf', marginBottom: '3px', fontSize: '0.85em' }}>
-                        Detected:
+                      <div style={{
+                        fontWeight: '700',
+                        color: '#92400e',
+                        marginBottom: '6px',
+                        fontSize: '0.85em',
+                        letterSpacing: '0.3px',
+                        textTransform: 'uppercase'
+                      }}>
+                        Detected Users
                       </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                         {detectedSockpuppets.map((username, idx) => (
                           <a
                             key={idx}
@@ -245,26 +297,94 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
                             rel="noopener noreferrer"
                             style={{
                               display: 'inline-block',
-                              padding: '2px 6px',
-                              backgroundColor: '#fff',
-                              border: '1px solid #ffc107',
-                              borderRadius: '10px',
-                              color: '#efece4',
+                              padding: '4px 10px',
+                              background: 'linear-gradient(135deg, #ffffff 0%, #fef9f3 100%)',
+
+                              borderRadius: '14px',
+                              color: '#92400e',
                               fontSize: '0.9em',
+                              fontWeight: '600',
                               textDecoration: 'none',
                               cursor: 'pointer',
-                              transition: 'all 0.2s ease'
+                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                              boxShadow: '0 1px 3px rgba(245, 158, 11, 0.2)'
                             }}
                             onMouseEnter={(e) => {
-                              e.target.style.backgroundColor = '#ffc107';
-                              e.target.style.color = '#fff';
+                              e.target.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+                              e.target.style.color = '#ffffff';
+                              e.target.style.transform = 'translateY(-2px)';
+                              e.target.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.4)';
                             }}
                             onMouseLeave={(e) => {
-                              e.target.style.backgroundColor = '#fff';
-                              e.target.style.color = '#edebe5';
+                              e.target.style.background = 'linear-gradient(135deg, #ffffff 0%, #fef9f3 100%)';
+                              e.target.style.color = '#92400e';
+                              e.target.style.transform = 'translateY(0)';
+                              e.target.style.boxShadow = '0 1px 3px rgba(245, 158, 11, 0.2)';
                             }}
                           >
                             {username}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Afficher les sources suspectes détectées au clic */}
+                  {hasSuspiciousSources && isSuspiciousSourcesExpanded && (
+                    <div className="detected-suspicious-sources" style={{
+                      marginTop: '8px',
+                      padding: '10px 12px',
+                      background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
+
+                      borderRadius: '8px',
+                      fontSize: '0.75em',
+                      animation: 'slideDown 0.2s ease-out',
+                      boxShadow: '0 2px 8px rgba(220, 38, 38, 0.15)'
+                    }}>
+                      <div style={{
+                        fontWeight: '700',
+                        color: '#7f1d1d',
+                        marginBottom: '6px',
+                        fontSize: '0.85em',
+                        letterSpacing: '0.3px',
+                        textTransform: 'uppercase'
+                      }}>
+                         Detected Sources
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                        {detectedSuspiciousSources.map((domain, idx) => (
+                          <a
+                            key={idx}
+                            href={`https://${domain}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'inline-block',
+                              padding: '4px 10px',
+                              background: 'linear-gradient(135deg, #ffffff 0%, #fef9f9 100%)',
+
+                              borderRadius: '14px',
+                              color: '#7f1d1d',
+                              fontSize: '0.9em',
+                              fontWeight: '600',
+                              textDecoration: 'none',
+                              cursor: 'pointer',
+                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                              boxShadow: '0 1px 3px rgba(220, 38, 38, 0.2)'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.background = 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)';
+                              e.target.style.color = '#ffffff';
+                              e.target.style.transform = 'translateY(-2px)';
+                              e.target.style.boxShadow = '0 4px 12px rgba(220, 38, 38, 0.4)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.background = 'linear-gradient(135deg, #ffffff 0%, #fef9f9 100%)';
+                              e.target.style.color = '#7f1d1d';
+                              e.target.style.transform = 'translateY(0)';
+                              e.target.style.boxShadow = '0 1px 3px rgba(220, 38, 38, 0.2)';
+                            }}
+                          >
+                            {domain}
                           </a>
                         ))}
                       </div>
@@ -281,12 +401,18 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
                   const hasSockpuppets = metricKey === 'Sockpuppets' &&
                     pages[0]?.detected_sockpuppets &&
                     pages[0].detected_sockpuppets.length > 0;
+                  const hasSuspiciousSources = metricKey === 'Suspicious sources' &&
+                    pages[0]?.detected_suspicious_sources &&
+                    pages[0].detected_suspicious_sources.length > 0;
+
                   if (hasSockpuppets) toggleSockpuppets(0);
+                  else if (hasSuspiciousSources) toggleSuspiciousSources(0);
                 }}
                 style={{
-                  cursor: (metricKey === 'Sockpuppets' &&
-                    pages[0]?.detected_sockpuppets &&
-                    pages[0].detected_sockpuppets.length > 0) ? 'pointer' : 'default',
+                  cursor: (
+                    (metricKey === 'Sockpuppets' && pages[0]?.detected_sockpuppets && pages[0].detected_sockpuppets.length > 0) ||
+                    (metricKey === 'Suspicious sources' && pages[0]?.detected_suspicious_sources && pages[0].detected_suspicious_sources.length > 0)
+                  ) ? 'pointer' : 'default',
                   userSelect: 'none',
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -304,6 +430,16 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
                     ▼
                   </span>
                 )}
+                {metricKey === 'Suspicious sources' && pages[0]?.detected_suspicious_sources && pages[0].detected_suspicious_sources.length > 0 && (
+                  <span style={{
+                    fontSize: '0.8em',
+                    opacity: 0.7,
+                    transform: expandedSuspiciousSources[0] ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease'
+                  }}>
+                    ▼
+                  </span>
+                )}
               </span>
               {/* Afficher les sockpuppets détectés au clic en mode single page */}
               {metricKey === 'Sockpuppets' &&
@@ -312,15 +448,23 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
                 expandedSockpuppets[0] && (
                 <div className="detected-sockpuppets" style={{
                   marginTop: '10px',
-                  padding: '10px 12px',
-                  backgroundColor: '#fff3cd',
-                  borderLeft: '3px solid #ffc107',
-                  borderRadius: '6px',
+                  padding: '12px 14px',
+                  background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+
+                  borderRadius: '8px',
                   fontSize: '0.9em',
-                  animation: 'slideDown 0.2s ease-out'
+                  animation: 'slideDown 0.2s ease-out',
+                  boxShadow: '0 2px 8px rgba(245, 158, 11, 0.15)'
                 }}>
-                  <div style={{ fontWeight: '600', color: '#856404', marginBottom: '6px' }}>
-                    Detected sockpuppets:
+                  <div style={{
+                    fontWeight: '700',
+                    color: '#92400e',
+                    marginBottom: '8px',
+                    fontSize: '0.9em',
+                    letterSpacing: '0.3px',
+                    textTransform: 'uppercase'
+                  }}>
+                     Detected Users
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                     {pages[0].detected_sockpuppets.map((username, idx) => (
@@ -331,26 +475,97 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
                         rel="noopener noreferrer"
                         style={{
                           display: 'inline-block',
-                          padding: '4px 10px',
-                          backgroundColor: '#fff',
-                          border: '1px solid #ffc107',
-                          borderRadius: '12px',
-                          color: '#856404',
-                          fontWeight: '500',
+                          padding: '6px 12px',
+                          background: 'linear-gradient(135deg, #ffffff 0%, #fef9f3 100%)',
+
+                          borderRadius: '14px',
+                          color: '#92400e',
+                          fontSize: '0.95em',
+                          fontWeight: '600',
                           textDecoration: 'none',
                           cursor: 'pointer',
-                          transition: 'all 0.2s ease'
+                          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                          boxShadow: '0 1px 3px rgba(245, 158, 11, 0.2)'
                         }}
                         onMouseEnter={(e) => {
-                          e.target.style.backgroundColor = '#ffc107';
-                          e.target.style.color = '#fff';
+                          e.target.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+                          e.target.style.color = '#ffffff';
+                          e.target.style.transform = 'translateY(-2px)';
+                          e.target.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.4)';
                         }}
                         onMouseLeave={(e) => {
-                          e.target.style.backgroundColor = '#fff';
-                          e.target.style.color = '#856404';
+                          e.target.style.background = 'linear-gradient(135deg, #ffffff 0%, #fef9f3 100%)';
+                          e.target.style.color = '#92400e';
+                          e.target.style.transform = 'translateY(0)';
+                          e.target.style.boxShadow = '0 1px 3px rgba(245, 158, 11, 0.2)';
                         }}
                       >
                         {username}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Afficher les sources suspectes détectées au clic en mode single page */}
+              {metricKey === 'Suspicious sources' &&
+                pages[0]?.detected_suspicious_sources &&
+                pages[0].detected_suspicious_sources.length > 0 &&
+                expandedSuspiciousSources[0] && (
+                <div className="detected-suspicious-sources" style={{
+                  marginTop: '10px',
+                  padding: '12px 14px',
+                  background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
+
+                  borderRadius: '8px',
+                  fontSize: '0.9em',
+                  animation: 'slideDown 0.2s ease-out',
+                  boxShadow: '0 2px 8px rgba(220, 38, 38, 0.15)'
+                }}>
+                  <div style={{
+                    fontWeight: '700',
+                    color: '#7f1d1d',
+                    marginBottom: '8px',
+                    fontSize: '0.9em',
+                    letterSpacing: '0.3px',
+                    textTransform: 'uppercase'
+                  }}>
+                     Detected Sources
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {pages[0].detected_suspicious_sources.map((domain, idx) => (
+                      <a
+                        key={idx}
+                        href={`https://${domain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-block',
+                          padding: '6px 12px',
+                          background: 'linear-gradient(135deg, #ffffff 0%, #fef9f9 100%)',
+
+                          borderRadius: '14px',
+                          color: '#7f1d1d',
+                          fontSize: '0.95em',
+                          fontWeight: '600',
+                          textDecoration: 'none',
+                          cursor: 'pointer',
+                          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                          boxShadow: '0 1px 3px rgba(220, 38, 38, 0.2)'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.background = 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)';
+                          e.target.style.color = '#ffffff';
+                          e.target.style.transform = 'translateY(-2px)';
+                          e.target.style.boxShadow = '0 4px 12px rgba(220, 38, 38, 0.4)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = 'linear-gradient(135deg, #ffffff 0%, #fef9f9 100%)';
+                          e.target.style.color = '#7f1d1d';
+                          e.target.style.transform = 'translateY(0)';
+                          e.target.style.boxShadow = '0 1px 3px rgba(220, 38, 38, 0.2)';
+                        }}
+                      >
+                        {domain}
                       </a>
                     ))}
                   </div>
@@ -390,11 +605,11 @@ const MetricsDisplay = ({ pages, comparisonMode }) => {
               {categoryData.title}
             </h5>
           </Tooltip>
-          
+
 {/* Score principal ou comparaison des scores */}
 <div className="category-scores-horizontal">
   {pages.length > 1 ? (
-    <div 
+    <div
       className="category-single-score"
       style={{
         fontSize: mainScore.length > 2 ? '0.9em' : 'inherit',

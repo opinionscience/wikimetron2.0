@@ -156,7 +156,7 @@ Mesure l'intensité de l'activité et des controverses autour d'un article.
 | **Citation gaps** | `ref.py` | `prop=revisions&rvprop=content` | Comptage des templates {{citation needed}} |
 | **Staleness** | `last_edit.py` | `prop=revisions&rvprop=timestamp` (limit=1) | Ancienneté de la dernière modification |
 | **Source concentration** | `domination.py` | `prop=revisions&rvprop=user` | Concentration des contributeurs (top N%) |
-| **Modifs mineures ?** | - | `prop=revisions&rvprop=flags` | Proportion de modifications mineures |
+| **Modifs mineures ?** | `minor_edits.py` | `prop=revisions&rvprop=flags` | Proportion de modifications mineures (sur 100 dernières) |
 | **Add/delete ratio** | `balance.py` | `prop=revisions&rvprop=size` | Ratio ajouts/suppressions de contenu |
 
 ### Behaviour Risk /21
@@ -206,6 +206,7 @@ wikimetron2.0/
 │       │   ├── ref.py                 # Quality Risk : Citation gaps
 │       │   ├── last_edit.py           # Quality Risk : Staleness
 │       │   ├── domination.py          # Quality Risk : Source concentration
+│       │   ├── minor_edits.py         # Quality Risk : Modifs mineures (⏸️ non intégré)
 │       │   ├── balance.py             # Quality Risk : Add/delete ratio
 │       │   │
 │       │   ├── faux_nez.py            # Behaviour Risk : Sockpuppets

@@ -203,6 +203,8 @@ const SensitivityScoresHeader = ({ pages, selectedIndices }) => {
         {selectedPages.map((page, i) => {
           const pageIndex = selectedIndices[i];
           const bg = PAGE_COLORS[pageIndex % PAGE_COLORS.length];
+          const privilegedBonus = page.metrics?.['Privileged bonus'] || 0;
+          const hasPatrolBonus = privilegedBonus < 0;
 
           return (
             <Tooltip
@@ -215,7 +217,32 @@ const SensitivityScoresHeader = ({ pages, selectedIndices }) => {
                   <div style={{ marginBottom: '8px' }}>
                     {getSensitivityExplanation(page.scores?.sensitivity)}
                   </div>
-                  
+                  {hasPatrolBonus && (
+                    <div style={{
+                      marginTop: '8px',
+                      paddingTop: '8px',
+                      borderTop: '1px solid rgba(255, 255, 255, 0.2)'
+                    }}>
+                      <div style={{
+                        color: '#10b981',
+                        fontWeight: '600',
+                        marginBottom: '4px'
+                      }}>
+                         Protected by privileged users
+                      </div>
+                      <div style={{ fontSize: '0.9em', opacity: 0.9 }}>
+                        Patrol bonus: {privilegedBonus.toFixed(1)}%
+                      </div>
+                      <div style={{
+                        fontSize: '0.85em',
+                        opacity: 0.75,
+                        marginTop: '4px',
+                        fontStyle: 'italic'
+                      }}>
+                        Admins/bureaucrats contribute to this page
+                      </div>
+                    </div>
+                  )}
                 </div>
               }
               position="bottom"
@@ -225,17 +252,38 @@ const SensitivityScoresHeader = ({ pages, selectedIndices }) => {
                 style={{
                   backgroundColor: bg,
                   color: 'white',
-                  boxShadow: '0 6px 18px rgba(0,0,0,0.18)'
+                  boxShadow: '0 6px 18px rgba(0,0,0,0.18)',
+                  position: 'relative',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  padding: '16px'
                 }}
               >
                 <div className="sensitivity-score-label">
-                  {page.title?.length > 15 
-                    ? `${page.title.substring(0, 15)}...` 
+                  {page.title?.length > 15
+                    ? `${page.title.substring(0, 15)}...`
                     : page.title}
                 </div>
                 <div className="sensitivity-score-number">
                   {formatMetricValue(page.scores?.sensitivity)}%
                 </div>
+                {hasPatrolBonus && (
+                  <div style={{
+                    background: 'rgba(16, 185, 129, 0.95)',
+                    color: 'white',
+                    padding: '4px 10px',
+                    borderRadius: '12px',
+                    fontSize: '0.65em',
+                    fontWeight: '600',
+                    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)',
+                    letterSpacing: '0.3px',
+                    marginTop: '4px'
+                  }}>
+                    {-(Math.abs(privilegedBonus).toFixed(1))}% patrol bonus
+                  </div>
+                )}
               </div>
             </Tooltip>
           );

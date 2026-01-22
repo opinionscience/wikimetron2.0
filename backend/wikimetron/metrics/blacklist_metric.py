@@ -55,38 +55,51 @@ def _wikitext(title: str, lang: str) -> str:
     return pg.get("revisions", [{}])[0].get("slots", {}).get("main", {}).get("content", "")
 
 
-def get_blacklist_share(pages: List[str], blacklist_csv="blacklist.csv", lang="fr") -> pd.Series:
+def get_blacklist_share(pages: List[str], blacklist_csv="blacklist.csv", lang="fr"):
     """
     Calcule le ratio de blacklist selon la nouvelle logique :
     - 0 domaine blacklisté → ratio = 0.0
     - 1 domaine blacklisté → ratio = 0.5
     - 2+ domaines blacklistés → ratio = 1.0
+
+    Returns:
+        Tuple[pd.Series, Dict[str, List[str]]]:
+        - pd.Series avec les ratios de blacklist pour chaque page
+        - Dict avec les domaines blacklistés par page {page_title: [domain1, domain2, ...]}
     """
     bl_domains = _load_blacklist(blacklist_csv)
     ratios = {}
+    blacklisted_by_page = {}
+
     for p in pages:
         text = _wikitext(p, lang)
         urls = URL_REGEX.findall(text)
         if not urls:
             ratios[p] = 0.0
+            blacklisted_by_page[p] = []
         else:
             domains = [urlparse(u).hostname or "" for u in urls]
             # Compter les domaines blacklistés uniques
             blacklisted_domains = set()
             for d in domains:
+                d_lower = d.lower()
                 for bd in bl_domains:
-                    if bd in d:
+                    # Match exact ou sous-domaine (ex: lemonde.fr match www.lemonde.fr)
+                    if d_lower == bd or d_lower.endswith('.' + bd):
                         blacklisted_domains.add(d)
-            
+
+            # Stocker les domaines blacklistés trouvés
+            blacklisted_by_page[p] = list(blacklisted_domains)
+
             # Nouvelle logique de calcul du ratio
             num_blacklisted = len(blacklisted_domains)
             if num_blacklisted == 0:
                 ratios[p] = 0.0
-
             else:  # 1 ou plus
                 ratios[p] = 1.0
-        time.sleep(0.1)
-    return pd.Series(ratios, name="blacklist_share")
+        time.sleep(0.3)
+
+    return pd.Series(ratios, name="blacklist_share"), blacklisted_by_page
 
 
 def get_blacklisted_domains(pages: List[str], blacklist_csv="blacklist.csv", lang="fr") -> Dict[str, List[str]]:
@@ -116,8 +129,10 @@ def get_blacklisted_domains(pages: List[str], blacklist_csv="blacklist.csv", lan
             # Trouve les domaines blacklistés uniques
             blacklisted_domains = set()
             for d in domains:
+                d_lower = d.lower()
                 for bd in bl_domains:
-                    if bd in d:
+                    # Match exact ou sous-domaine (ex: lemonde.fr match www.lemonde.fr)
+                    if d_lower == bd or d_lower.endswith('.' + bd):
                         blacklisted_domains.add(d)
             blacklisted_by_page[p] = list(blacklisted_domains)
             
@@ -163,8 +178,10 @@ def get_blacklist_analysis(pages: List[str], blacklist_csv="blacklist.csv", lang
             # Trouve les domaines blacklistés uniques
             blacklisted_domains = set()
             for d in domains:
+                d_lower = d.lower()
                 for bd in bl_domains:
-                    if bd in d:
+                    # Match exact ou sous-domaine (ex: lemonde.fr match www.lemonde.fr)
+                    if d_lower == bd or d_lower.endswith('.' + bd):
                         blacklisted_domains.add(d)
             
             blacklisted_by_page[p] = list(blacklisted_domains)
@@ -208,11 +225,21 @@ if __name__ == "__main__":
     ns = ap.parse_args()
 
     if ns.mode == "ratio":
-        res = get_blacklist_share(ns.pages, ns.blacklist, ns.lang)
+        res, blacklisted = get_blacklist_share(ns.pages, ns.blacklist, ns.lang)
         if ns.json:
-            print(json.dumps(res.to_dict(), ensure_ascii=False, indent=2))
+            result = {
+                'ratios': res.to_dict(),
+                'blacklisted_domains': blacklisted
+            }
+            print(json.dumps(result, ensure_ascii=False, indent=2))
         else:
             print(res.to_markdown())
+            print("\n=== DOMAINES BLACKLISTÉS ===")
+            for page, domains in blacklisted.items():
+                if domains:
+                    print(f"{page}: {', '.join(domains)}")
+                else:
+                    print(f"{page}: ✅ Aucun")
     
     elif ns.mode == "domains":
         domains = get_blacklisted_domains(ns.pages, ns.blacklist, ns.lang)
