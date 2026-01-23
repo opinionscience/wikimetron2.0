@@ -19,23 +19,16 @@ services:
     depends_on:
       - postgres
       - redis
-    command: uvicorn wikimetron.api.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn wikimetron.api.main:app --host 0.0.0.0 --port 8000
 
   wikimetron-ui:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
     ports:
-      - "8300:3000"
-    environment:
-      - REACT_APP_API_URL=http://localhost:8200
-      - REACT_APP_VERSION=1.0.0
-    env_file:
-      - .env
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    command: npm start
+      - "8300:80"
+    depends_on:
+      - wikimetron-api
 
   postgres:
     image: postgres:15-alpine
