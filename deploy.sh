@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # =========================
 # CONFIG
@@ -9,40 +9,55 @@ REMOTE_HOST="37.59.112.214"
 SSH_PORT=22
 
 APP_NAME="wikimetron2"
-REMOTE_DIR="/home/saad/$APP_NAME"
+REMOTE_DIR="/home/saad/${APP_NAME}"
 
 # =========================
-# PRE-CHECKS
+# PRE-CHECKS LOCAL
 # =========================
-echo "🔎 Checking Docker..."
+echo "🔎 Checking local Docker..."
 docker info >/dev/null
 
-echo "🔎 Checking SSH..."
-ssh -p $SSH_PORT $REMOTE_USER@$REMOTE_HOST "echo SSH OK"
+echo "🔎 Checking SSH connectivity..."
+ssh -p "$SSH_PORT" "$REMOTE_USER@$REMOTE_HOST" "echo SSH OK"
 
 # =========================
-# SYNC PROJECT
+# HARD RESET REMOTE CODE
 # =========================
-echo "📦 Syncing project..."
-rsync -avz --delete \
+echo "🔥 Removing remote project directory..."
+ssh -p "$SSH_PORT" "$REMOTE_USER@$REMOTE_HOST" <<EOF
+set -e
+rm -rf "$REMOTE_DIR"
+mkdir -p "$REMOTE_DIR"
+EOF
+
+# =========================
+# SYNC PROJECT (SOURCE OF TRUTH = LOCAL)
+# =========================
+echo "📦 Syncing fresh project snapshot..."
+rsync -avz \
   --exclude node_modules \
   --exclude .git \
   --exclude .next \
+  --exclude dist \
+  --exclude build \
   -e "ssh -p $SSH_PORT" \
-  ./ $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR
+  ./ "$REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/"
 
 # =========================
 # REMOTE DEPLOY
 # =========================
-ssh -p $SSH_PORT $REMOTE_USER@$REMOTE_HOST <<EOF
+ssh -p "$SSH_PORT" "$REMOTE_USER@$REMOTE_HOST" <<EOF
 set -e
-cd $REMOTE_DIR
+cd "$REMOTE_DIR"
 
-echo "🛑 Stopping old stack..."
+echo "🛑 Stopping existing stack (if any)..."
 docker compose down || true
 
-echo "🐳 Building images..."
-docker compose build
+echo "🧹 Cleaning dangling images..."
+docker image prune -f
+
+echo "🐳 Building images (no cache)..."
+docker compose build --no-cache
 
 echo "🚀 Starting stack..."
 docker compose up -d
@@ -51,4 +66,4 @@ echo "📊 Stack status:"
 docker compose ps
 EOF
 
-echo "✅ Wikimetron deployed successfully"
+echo "✅ Wikimetron deployed successfully (clean state)"
