@@ -98,6 +98,68 @@ body {
   font-size: 0.9rem;
   padding: 0.5rem 1rem;
 }
+
+.barometer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 10px;
+  padding: 0.42rem 0.62rem;
+  border: 1px solid transparent;
+  text-decoration: none;
+  font-size: 0.82rem;
+  line-height: 1;
+  white-space: nowrap;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.barometer-link:hover {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.barometer-link:focus-visible {
+  outline: 2px solid var(--color-secondary);
+  outline-offset: 2px;
+}
+
+.barometer-link-text {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.barometer-link-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-shrink: 0;
+}
+
+.barometer-link-header {
+  margin-left: auto;
+  color: var(--color-black);
+  background: #ffffff;
+  border-color: #d1d5db;
+  box-shadow: none;
+}
+
+.barometer-link-header:hover {
+  transform: none;
+  box-shadow: none;
+  color: var(--color-black);
+  background: #ffffff;
+  border-color: #d1d5db;
+}
+
+.barometer-link-footer {
+  color: var(--color-white);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  margin: 1rem 0 0.8rem;
+}
+
+.barometer-link-footer:hover {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
 /* Configuration Container */
 .config-container {
   max-width: 800px;
@@ -653,6 +715,7 @@ code, pre, kbd, samp {
   .minimal-container {
     margin-left: 0;
     padding: 0.75rem;
+    align-items: center;
   }
   
   .header-content {
@@ -661,14 +724,17 @@ code, pre, kbd, samp {
   
   }
   .header-content-principal {
-    flex-direction: row;
-    gap: 0.75rem;
     gap: 0.5rem;
+    flex-wrap: wrap;
   }
   .minimal-title {
     font-size: 1.25rem;
     margin: 0 0 0 10px;
     text-align: center;
+  }
+
+  .barometer-link-header {
+    margin-left: 0;
   }
   
   .action-button-modern {

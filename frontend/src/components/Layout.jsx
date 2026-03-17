@@ -1,5 +1,8 @@
 import React from 'react';
+import { ArrowRightIcon } from '@heroicons/react/24/solid';
 import '../styles/wikimetron.css';
+
+const WIKI_BAROMETER_URL = 'https://wikisensibarometer.disinfo-prompt.eu/';
 
 const Layout = ({ children, pageTitle, subtitle, onBackToConfig }) => (
   <div className="wikimetron-app">
@@ -19,6 +22,16 @@ const Layout = ({ children, pageTitle, subtitle, onBackToConfig }) => (
             />
           </a>
           <h1 className="minimal-title">Wikipedia Sensitivity Meter</h1>
+          <a
+            href={WIKI_BAROMETER_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="barometer-link barometer-link-header"
+            aria-label="Open Wiki Barometer in a new tab"
+          >
+            <span className="barometer-link-text">Wiki Barometer</span>
+            <ArrowRightIcon className="barometer-link-icon" aria-hidden="true" />
+          </a>
         </div>
       </div>
     </header>
@@ -27,6 +40,16 @@ const Layout = ({ children, pageTitle, subtitle, onBackToConfig }) => (
     </main>
     <footer className="wikimetron-footer">
       <div className="footer-content">
+        <a
+          href={WIKI_BAROMETER_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="barometer-link barometer-link-footer"
+          aria-label="Open Wiki Barometer in a new tab"
+        >
+          <span className="barometer-link-text">Wiki Barometer</span>
+          <ArrowRightIcon className="barometer-link-icon" aria-hidden="true" />
+        </a>
         <div className="footer-logos">
           <a
             href="https://www.opsci.ai"
